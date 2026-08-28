@@ -1,0 +1,25 @@
+[project]
+name = "bike-rental"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Loewin Jon Villanueva", email = "loewinvillanueva07@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "cloudinary>=1.45.0",
+    "fastapi>=0.141.1",
+    "psycopg2-binary>=2.9.12",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.32",
+    "sqlmodel>=0.0.39",
+    "uvicorn[standard]>=0.52.3",
+]
+
+[project.scripts]
+bike-rental = "bike_rental:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
