@@ -366,6 +366,10 @@ class BookingCreate(SQLModel):
 class RentalRead(SQLModel):
     id: uuid.UUID
     bike_id: uuid.UUID
+    # Denormalised so "My rides" can render a booking without also fetching the
+    # whole catalogue to resolve every bike_id.
+    bike_name: Optional[str] = None
+    bike_type: Optional[BikeType] = None
     released_at: Optional[datetime]
     due_at: Optional[datetime]
     returned_at: Optional[datetime]
@@ -378,9 +382,35 @@ class BookingRead(SQLModel):
     booking_ref: Optional[str]
     expected_pickup_date: date
     rate_selected: RateSelected
-    total_price: Decimal
-    amount_paid: Decimal
-    balance_due: Decimal
+    total_price: Decimal = Field(schema_extra={"example": "250.00"})
+    amount_paid: Decimal = Field(schema_extra={"example": "0.00"})
+    balance_due: Decimal = Field(schema_extra={"example": "250.00"})
     payment_method: PaymentMethod
     payment_status: PaymentStatus
+    booking_type: BookingType = BookingType.new
+    created_at: Optional[datetime] = None
     rentals: list[RentalRead] = []
+
+class BikeRead(SQLModel):
+    id: uuid.UUID
+    name: str
+    type: BikeType
+    status: BikeStatus
+    daily_rate: Decimal
+    weekly_rate: Optional[Decimal] = None
+    image_url: Optional[str] = None
+    # False only when the caller asked about a specific pickup date and the bike
+    # is already reserved for it. Without a date there is nothing to check, so a
+    # bike is "available" as long as it is in service.
+    available: bool = True
+
+class UserRead(SQLModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    role: RoleName
+    created_at: Optional[datetime] = None
+    name_confirmed: bool
+    tos_version_accepted: Optional[str] = None
+    tos_accepted_at: Optional[datetime] = None
+    is_active: bool

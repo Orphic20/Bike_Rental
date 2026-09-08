@@ -17,7 +17,7 @@ from bike_rental.routers import (
 load_dotenv()
 
 app = FastAPI(
-    title="Velocove Bike Rental API",
+    title="Munoz Bike Rental API",
     version="0.1.0",
 )
 
