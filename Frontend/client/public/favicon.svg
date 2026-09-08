@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Muñoz Bike Rental">
+  <rect width="64" height="64" rx="14" fill="#223633" />
+  <circle cx="32" cy="34" r="15" fill="none" stroke="#F4EFE6" stroke-width="3.5" />
+  <circle cx="32" cy="34" r="4" fill="#C84C3D" />
+  <path d="M17 34a15 15 0 0 1 30 0" fill="none" stroke="#C84C3D" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M32 12v6M46 18l-4 4M18 18l4 4" stroke="#E8B04B" stroke-width="3.5" stroke-linecap="round" />
+</svg>

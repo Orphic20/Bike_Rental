@@ -11,6 +11,7 @@ wheels/
 .env
 .env.*
 *.env
+!.env.example
 
 # Python Virtual Environments (Created by uv)
 .venv/
@@ -26,4 +27,3 @@ Thumbs.db
 # 5. Local Database Files
 *.sqlite3
 *.db
-Frontend/
