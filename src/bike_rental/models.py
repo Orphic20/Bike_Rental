@@ -414,3 +414,8 @@ class UserRead(SQLModel):
     tos_version_accepted: Optional[str] = None
     tos_accepted_at: Optional[datetime] = None
     is_active: bool
+
+
+class StaffBookingRead(BookingRead):
+    customer_name: str
+    customer_email: str

@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import select
 from typing import Annotated
 
-from bike_rental.models import User
+from bike_rental.models import Role, RoleName, User
 from bike_rental.database import SessionDep
 
 bearer = HTTPBearer(auto_error=False)
@@ -55,3 +55,37 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_current_role(user: CurrentUser, session: SessionDep) -> RoleName:
+    role = session.get(Role, user.role_id)
+    if role is None:
+        raise HTTPException(status_code=500, detail="User has no role")
+    return role.name
+
+
+# FastAPI caches a dependency per request, so several guards on one endpoint
+# still cost a single role lookup.
+CurrentRole = Annotated[RoleName, Depends(get_current_role)]
+
+
+def require_role(*allowed: RoleName):
+    """Build a dependency that rejects callers outside `allowed`.
+
+    Roles do not nest: admin only passes a staff guard if staff and admin are
+    both listed.
+    """
+
+    def dependency(user: CurrentUser, role: CurrentRole) -> User:
+        if role not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires {' or '.join(r.value for r in allowed)} role",
+            )
+        return user
+
+    return dependency
+
+
+StaffUser = Annotated[User, Depends(require_role(RoleName.staff, RoleName.admin))]
+AdminUser = Annotated[User, Depends(require_role(RoleName.admin))]
