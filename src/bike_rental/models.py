@@ -419,3 +419,5 @@ class UserRead(SQLModel):
 class StaffBookingRead(BookingRead):
     customer_name: str
     customer_email: str
+    gcash_ref_no: Optional[str] = None
+    gcash_receipt_url: Optional[str] = None

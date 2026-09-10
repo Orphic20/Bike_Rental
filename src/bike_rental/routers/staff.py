@@ -15,6 +15,8 @@ from bike_rental.models import (
     BikeStatus,
     Booking,
     BookingRead,
+    PaymentMethod,
+    PaymentStatus,
     Rental,
     RentalRead,
     RentalStatus,
@@ -80,7 +82,9 @@ def list_staff_bookings(
                 **base.model_dump(),
                 customer_name=customer.name,
                 customer_email=customer.email,
-        )
+                gcash_ref_no=booking.gcash_ref_no,
+                gcash_receipt_url=booking.gcash_receipt_url,
+            )
         )
     return result
 
@@ -173,3 +177,44 @@ def return_rental(
         price=rental.price,
         status=rental.status,
     )
+
+
+@router.get("/payments/pending", response_model=list[StaffBookingRead])
+def list_pending_gcash(
+    user: StaffUser,
+    session: SessionDep,
+) -> list[StaffBookingRead]:
+    pairs = session.exec(
+        select(Booking, User)
+        .join(User, User.id == Booking.user_id)
+        .where(Booking.payment_method == PaymentMethod.gcash)
+        .where(Booking.payment_status == PaymentStatus.pending_verification)
+        .order_by(Booking.created_at.desc())
+    ).all()
+    if not pairs:
+        return []
+
+    rows = session.exec(
+        select(Rental, Bike)
+        .join(Bike, Bike.id == Rental.bike_id)
+        .where(Rental.booking_id.in_([booking.id for booking, _ in pairs]))
+        .order_by(Rental.id)
+    ).all()
+
+    grouped: dict[uuid.UUID, list[tuple[Rental, Bike]]] = {}
+    for rental, bike in rows:
+        grouped.setdefault(rental.booking_id, []).append((rental, bike))
+
+    result = []
+    for booking, customer in pairs:
+        base = _to_read(booking, grouped.get(booking.id, []))
+        result.append(
+            StaffBookingRead(
+                **base.model_dump(),
+                customer_name=customer.name,
+                customer_email=customer.email,
+                gcash_ref_no=booking.gcash_ref_no,
+                gcash_receipt_url=booking.gcash_receipt_url,
+            )
+        )
+    return result
