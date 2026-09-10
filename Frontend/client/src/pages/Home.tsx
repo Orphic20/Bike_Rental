@@ -7,7 +7,12 @@
   routers do not expose endpoints yet; they are labelled as such in the UI.
 */
 import { AuthDialog } from "@/components/AuthDialog";
-import { BikeArt, BrandMark, HeroArt } from "@/components/Artwork";
+import foldingBike from "@/assets/folding-bike.jpg";
+import japaneseBike from "@/assets/japanese-bike.jpg";
+import lingapRouteCard from "@/assets/lingap_routecard.jpg";
+import mountainBike from "@/assets/mountain-bike.jpg";
+import munozBikeFront from "@/assets/munoz-bike-front.png";
+import { BikeArt, BrandMark } from "@/components/Artwork";
 import { MapView } from "@/components/Map";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBikes, useMyBookings } from "@/hooks/useApi";
@@ -66,21 +71,24 @@ type View = "landing" | "selection" | "customer" | "staff" | "admin";
 
 const BIKE_TYPES: BikeType[] = ["japanese", "folding", "mountain"];
 
-const TYPE_COPY: Record<BikeType, { tint: string; tagline: string; blurb: string }> = {
+const TYPE_COPY: Record<BikeType, { tint: string; tagline: string; blurb: string; photo: string }> = {
   japanese: {
     tint: "selection-sage",
     tagline: "City comfort",
     blurb: "Upright comfort, baskets, and an easy pace for the waterfront.",
+    photo: japaneseBike,
   },
   folding: {
     tint: "selection-clay",
     tagline: "Compact utility",
     blurb: "Small, nimble, and ready for the city between stops.",
+    photo: foldingBike,
   },
   mountain: {
     tint: "selection-forest",
     tagline: "Trail ready",
     blurb: "Confident control for open roads, climbs, and the edge of town.",
+    photo: mountainBike,
   },
 };
 
@@ -239,11 +247,6 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
     return map;
   }, [bikes]);
 
-  const cheapest = useMemo(() => {
-    const prices = [...summary.values()].map((entry) => entry.from);
-    return prices.length ? Math.min(...prices) : null;
-  }, [summary]);
-
   const current = summary.get(activeType);
 
   return (
@@ -272,15 +275,12 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           </div>
           <div className="landing-proof">
             <span>
-              <CheckCircle2 size={15} /> Helmet + lock included
-            </span>
-            <span>
               <CheckCircle2 size={15} /> No payment until pickup
             </span>
           </div>
         </div>
         <div className="landing-hero-art">
-          <HeroArt />
+          <img src={munozBikeFront} alt="A Muñoz Bike Rental ride on a Muñoz street" />
           <div className="landing-art-overlay" />
           <span className="landing-art-stamp">
             MBR
@@ -304,10 +304,10 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           </span>
           <span>
             <Clock3 size={16} />{" "}
-            {cheapest === null ? "Daily rates" : `Daily from ${formatPeso(cheapest)}`}
+            Daily from {formatPeso(50)}
           </span>
           <span>
-            <MapPin size={16} /> Bagong Sikat kiosk
+            <MapPin size={16} /> Bagong Sikat
           </span>
         </div>
         <button className="secondary-button landing-rail-button" onClick={() => onBook()}>
@@ -366,7 +366,10 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
               })}
             </div>
             <div className="landing-feature-bike">
-              <BikeArt type={activeType} alt={BIKE_TYPE_LABELS[activeType]} />
+              <img
+                src={TYPE_COPY[activeType].photo}
+                alt={BIKE_TYPE_LABELS[activeType]}
+              />
               <div className="landing-feature-copy">
                 <span className="bike-kind">{TYPE_COPY[activeType].tagline}</span>
                 <h3>{BIKE_TYPE_LABELS[activeType]}</h3>
@@ -430,14 +433,10 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
         </div>
         <div className="landing-way-card">
           <div className="landing-route-illustration">
-            <span className="route-orb" />
-            <span className="route-arc arc-a" />
-            <span className="route-arc arc-b" />
-            <span className="route-arc arc-c" />
-            <MapPin size={22} fill="currentColor" />
+            <img src={lingapRouteCard} alt="Lingap loop route through Muñoz" />
           </div>
           <span className="micro-label">Route card</span>
-          <strong>The scenic one</strong>
+          <strong>Lingap loop</strong>
           <span>Ask us at the shop for today's favorite loop.</span>
         </div>
       </section>
@@ -731,7 +730,7 @@ function SelectionView({
                 onClick={() => setStylePage(type)}
               >
                 <div className="style-page-image">
-                  <BikeArt type={type} alt={BIKE_TYPE_LABELS[type]} />
+                  <img src={TYPE_COPY[type].photo} alt={BIKE_TYPE_LABELS[type]} />
                   <span className="selection-number">0{index + 1}</span>
                   <span className="style-page-arrow">
                     <ArrowUpRight size={17} />
@@ -1063,7 +1062,7 @@ function CustomerView({
               <h2>{confirmed.booking_ref ?? "Your booking is in."}</h2>
               <p>
                 {confirmed.payment_method === "cash"
-                  ? "Pay the exact total in cash at the Bagong Sikat kiosk. Your bikes are released once staff records the payment."
+                  ? "Pay the exact total in cash at Bagong Sikat. Your bikes are released once staff records the payment."
                   : "We'll verify your GCash receipt shortly. Your bikes are released once payment is confirmed."}
               </p>
               <div className="review-list">
@@ -1217,7 +1216,7 @@ function CustomerView({
                     <div className="field-block">
                       <label>Pick up at</label>
                       <span className="select-field">
-                        <MapPin size={16} /> Bagong Sikat kiosk
+                        <MapPin size={16} /> Bagong Sikat
                       </span>
                     </div>
                   </div>
@@ -1493,7 +1492,7 @@ function CustomerView({
                 <div>
                   <span>Pickup</span>
                   <strong>{pickupDate ? formatDateLabel(pickupDate) : "Choose a date"}</strong>
-                  <small>Bagong Sikat kiosk · 9:30 AM</small>
+                  <small>Bagong Sikat · 9:30 AM</small>
                 </div>
                 <div>
                   <span>Rate</span>
@@ -1708,7 +1707,7 @@ function StaffView() {
           <span className="avatar staff-avatar">JR</span>
           <div>
             <strong>Counter</strong>
-            <small>Staff · Bagong Sikat kiosk</small>
+            <small>Staff · Bagong Sikat</small>
           </div>
         </div>
         <div className="sidebar-nav-label">Operations</div>

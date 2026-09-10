@@ -16,6 +16,7 @@ from bike_rental.models import (
     Booking,
     BookingRead,
     Rental,
+    RentalRead,
     RentalStatus,
     StaffBookingRead,
     User,
@@ -133,3 +134,42 @@ def release_booking(
     for rental, _ in rows:
         session.refresh(rental)
     return _to_read(booking, list(rows))
+
+
+@router.post("/rentals/{rental_id}/return", response_model=RentalRead)
+def return_rental(
+    rental_id: uuid.UUID,
+    user: StaffUser,
+    session: SessionDep,
+) -> RentalRead:
+    rental = session.get(Rental, rental_id)
+    if not rental:
+        raise HTTPException(status_code=404, detail="Rental not found")
+    if rental.status not in (RentalStatus.active, RentalStatus.overdue):
+        raise HTTPException(status_code=400, detail="Rental is not outstanding")
+
+    bike = session.get(Bike, rental.bike_id)
+    if bike is None:
+        raise HTTPException(status_code=500, detail="Rental has no bike")
+    if bike.status != BikeStatus.rented:
+        raise HTTPException(status_code=400, detail="Bike is not rented")
+
+    now = datetime.now(timezone.utc)
+    rental.returned_at = now
+    rental.status = RentalStatus.returned
+    bike.status = BikeStatus.available
+
+    session.add(rental)
+    session.commit()
+    session.refresh(rental)
+    return RentalRead(
+        id=rental.id,
+        bike_id=rental.bike_id,
+        bike_name=bike.name,
+        bike_type=bike.type,
+        released_at=rental.released_at,
+        due_at=rental.due_at,
+        returned_at=rental.returned_at,
+        price=rental.price,
+        status=rental.status,
+    )
