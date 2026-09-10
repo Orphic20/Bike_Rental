@@ -27,6 +27,7 @@ def cash_on_pickup(
         raise HTTPException(status_code=400, detail="Payment status is not pending")
     if booking.amount_paid != 0:
         raise HTTPException(status_code=400, detail="Amount paid is not 0")
+
     booking.amount_paid = booking.total_price
     booking.payment_status = PaymentStatus.paid
     session.add(booking)
@@ -39,5 +40,4 @@ def cash_on_pickup(
         .order_by(Rental.id)
     ).all()
     return _to_read(booking, list(rentals))
- 
     

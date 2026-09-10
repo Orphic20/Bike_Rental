@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Column, Computed, DateTime, ForeignKey, Numeric, Text, func
@@ -361,6 +361,10 @@ class BookingCreate(SQLModel):
     gcash_ref_no: Optional[str] = None
     gcash_receipt_url: Optional[str] = None
     waiver_version: str
+
+
+class GcashVerify(SQLModel):
+    decision: Literal["accepted", "rejected"]
 
 
 class RentalRead(SQLModel):

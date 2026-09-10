@@ -15,6 +15,7 @@ from bike_rental.models import (
     BikeStatus,
     Booking,
     BookingRead,
+    GcashVerify,
     PaymentMethod,
     PaymentStatus,
     Rental,
@@ -218,3 +219,38 @@ def list_pending_gcash(
             )
         )
     return result
+
+
+@router.post("/payments/{booking_id}/verify", response_model=BookingRead)
+def verify_gcash_payment(
+    booking_id: uuid.UUID,
+    body: GcashVerify,
+    user: StaffUser,
+    session: SessionDep,
+) -> BookingRead:
+    booking = session.get(Booking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.payment_method != PaymentMethod.gcash:
+        raise HTTPException(status_code=400, detail="Payment method is not gcash")
+    if booking.payment_status != PaymentStatus.pending_verification:
+        raise HTTPException(status_code=400, detail="Payment status is not pending verification")
+    if booking.amount_paid != 0:
+        raise HTTPException(status_code=400, detail="Amount paid is not 0")
+
+    if body.decision == "accepted":
+        booking.amount_paid = booking.total_price
+        booking.payment_status = PaymentStatus.paid
+    else:
+        booking.payment_status = PaymentStatus.rejected
+
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    rentals = session.exec(
+        select(Rental, Bike)
+        .join(Bike, Bike.id == Rental.bike_id)
+        .where(Rental.booking_id == booking.id)
+        .order_by(Rental.id)
+    ).all()
+    return _to_read(booking, list(rentals))
