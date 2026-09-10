@@ -114,28 +114,3 @@ export function BikeArt({
     </span>
   );
 }
-
-export function HeroArt() {
-  return (
-    <div className="hero-art-canvas" role="img" aria-label="A bike on a sunlit coastal street">
-      <svg viewBox="0 0 600 700" aria-hidden="true">
-        <circle cx="430" cy="150" r="86" fill="#f2d9ae" opacity=".85" />
-        <g fill="none" stroke="#fdf6e8" strokeWidth="2" opacity=".5">
-          <path d="M0 470q150-70 300 0t300 0" />
-          <path d="M0 520q150-70 300 0t300 0" />
-          <path d="M0 570q150-70 300 0t300 0" />
-        </g>
-        <g fill="none" stroke="#20342c" strokeWidth="7" strokeLinecap="round" opacity=".92">
-          <circle cx="188" cy="470" r="72" />
-          <circle cx="418" cy="470" r="72" />
-          <path d="M188 470l104-118h86l40 118" />
-          <path d="M292 352h86" />
-          <path d="M303 470V352" stroke={CLAY} />
-          <path d="M378 352v-52M356 292h48" />
-          <path d="M244 412h84" />
-        </g>
-        <circle cx="303" cy="470" r="13" fill={CLAY} />
-      </svg>
-    </div>
-  );
-}

@@ -86,8 +86,7 @@ export function AuthDialog({ onClose }: { onClose: () => void }) {
           {mode === "signIn" ? "Sign in to book." : "Create your account."}
         </h2>
         <p>
-          Your full name must match the physical ID you present at the Bagong Sikat
-          kiosk.
+          Your full name must match the physical ID you present at Bagong Sikat.
         </p>
 
         {!configured ? (
