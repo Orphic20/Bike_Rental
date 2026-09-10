@@ -11,6 +11,7 @@ from bike_rental.routers import (
     extensions_swaps,
     payments,
     staff,
+    uploads,
     users,
 )
 
@@ -39,9 +40,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (users, bikes, bookings, payments, staff, extensions_swaps, admin):
+for module in (users, bikes, bookings, payments, staff, uploads, extensions_swaps, admin):
     app.include_router(module.router)
-
 
 @app.get("/health", tags=["meta"])
 def health() -> dict[str, str]:

@@ -42,7 +42,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  // Let the browser set the multipart boundary. JSON still needs the header.
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
 
   if (auth) {
     const token = await getAccessToken();
@@ -55,7 +57,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     response = await fetch(url, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isForm
+            ? (body as FormData)
+            : JSON.stringify(body),
       signal,
     });
   } catch (error) {
@@ -117,4 +124,14 @@ export const api = {
 
   createBooking: (body: BookingCreate) =>
     request<Booking>("/bookings", { method: "POST", body, auth: true }),
+
+  uploadReceipt: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<{ url: string }>("/uploads/receipt", {
+      method: "POST",
+      body,
+      auth: true,
+    });
+  },
 };

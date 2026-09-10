@@ -969,6 +969,8 @@ function CustomerView({
   const [step, setStep] = useState(1);
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [waiver, setWaiver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -982,6 +984,33 @@ function CustomerView({
         ["reserved", "active", "overdue"].includes(rental.status),
       ),
     ) ?? [];
+
+  const onReceiptFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.warning("Use a receipt image", { description: "PNG, JPG, or WEBP." });
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.warning("Image is too large", { description: "Keep it under 8 MB." });
+      return;
+    }
+    setUploadingReceipt(true);
+    try {
+      const { url } = await api.uploadReceipt(file);
+      setReceiptUrl(url);
+      setReceiptName(file.name);
+    } catch (cause) {
+      setReceiptUrl("");
+      setReceiptName("");
+      toast.error("Receipt upload failed", {
+        description:
+          cause instanceof ApiError ? cause.message : "Could not upload the image.",
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   const submit = async () => {
     if (!pickupDate) {
@@ -1027,11 +1056,17 @@ function CustomerView({
       });
       return;
     }
-    if (step === 4 && payment === "gcash" && (!receiptUrl.trim() || !referenceNumber.trim())) {
-      toast.warning("Add your GCash proof", {
-        description: "The receipt link and reference number are both required.",
-      });
-      return;
+    if (step === 4 && payment === "gcash") {
+      if (uploadingReceipt) {
+        toast.warning("Receipt is still uploading");
+        return;
+      }
+      if (!receiptUrl.trim() || !referenceNumber.trim()) {
+        toast.warning("Add your GCash proof", {
+          description: "A receipt photo and reference number are both required.",
+        });
+        return;
+      }
     }
     if (step < 5) setStep(step + 1);
     else void submit();
@@ -1379,14 +1414,40 @@ function CustomerView({
                         <p>
                           Amount due: <b>{formatPeso(total)}</b>
                         </p>
-                        <label className="reference-field">
-                          <span>Receipt link</span>
+                        <label
+                          className={
+                            receiptUrl ? "upload-proof uploaded" : "upload-proof"
+                          }
+                        >
                           <input
-                            value={receiptUrl}
-                            onChange={(event) => setReceiptUrl(event.target.value)}
-                            placeholder="https://…"
+                            type="file"
+                            accept="image/*"
+                            disabled={uploadingReceipt}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              void onReceiptFile(file);
+                            }}
                           />
+                          <span>
+                            {uploadingReceipt ? (
+                              "Uploading…"
+                            ) : receiptUrl ? (
+                              <>
+                                <FileCheck2 size={14} /> {receiptName || "Receipt uploaded"}
+                              </>
+                            ) : (
+                              "Upload GCash receipt"
+                            )}
+                          </span>
                         </label>
+                        {receiptUrl && (
+                          <img
+                            className="receipt-thumb"
+                            src={receiptUrl}
+                            alt="Uploaded GCash receipt"
+                          />
+                        )}
                         <label className="reference-field">
                           <span>GCash reference number</span>
                           <input
@@ -1396,8 +1457,7 @@ function CustomerView({
                           />
                         </label>
                         <small className="proof-required">
-                          Both fields are required. Direct receipt upload arrives with the
-                          payments API.
+                          A receipt photo and reference number are both required.
                         </small>
                       </div>
                     </div>
@@ -1450,12 +1510,18 @@ function CustomerView({
                 >
                   Back
                 </button>
-                <button className="primary-button" onClick={next} disabled={submitting}>
+                <button
+                  className="primary-button"
+                  onClick={next}
+                  disabled={submitting || uploadingReceipt}
+                >
                   {submitting
                     ? "Confirming…"
-                    : step === 5
-                      ? "Confirm reservation"
-                      : "Continue"}
+                    : uploadingReceipt
+                      ? "Uploading…"
+                      : step === 5
+                        ? "Confirm reservation"
+                        : "Continue"}
                   <ArrowRight size={16} />
                 </button>
               </div>
