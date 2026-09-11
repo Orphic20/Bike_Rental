@@ -5,6 +5,8 @@ import type {
   Booking,
   BookingCreate,
   RateSelected,
+  Rental,
+  StaffBooking,
   User,
 } from "@/lib/types";
 
@@ -124,6 +126,44 @@ export const api = {
 
   createBooking: (body: BookingCreate) =>
     request<Booking>("/bookings", { method: "POST", body, auth: true }),
+
+  cancelBooking: (id: string) =>
+    request<Booking>(`/bookings/${id}/cancel`, { method: "POST", auth: true }),
+
+  listStaffBookings: (
+    params: { q?: string; tab?: "today" | "outstanding" } = {},
+    signal?: AbortSignal,
+  ) =>
+    request<StaffBooking[]>("/staff/bookings", {
+      auth: true,
+      query: params,
+      signal,
+    }),
+
+  listPendingGcash: (signal?: AbortSignal) =>
+    request<StaffBooking[]>("/staff/payments/pending", { auth: true, signal }),
+
+  recordCash: (bookingId: string) =>
+    request<Booking>(`/payments/${bookingId}/cash`, { method: "POST", auth: true }),
+
+  verifyGcash: (bookingId: string, decision: "accepted" | "rejected") =>
+    request<Booking>(`/staff/payments/${bookingId}/verify`, {
+      method: "POST",
+      body: { decision },
+      auth: true,
+    }),
+
+  releaseBooking: (bookingId: string) =>
+    request<Booking>(`/staff/bookings/${bookingId}/release`, {
+      method: "POST",
+      auth: true,
+    }),
+
+  returnRental: (rentalId: string) =>
+    request<Rental>(`/staff/rentals/${rentalId}/return`, {
+      method: "POST",
+      auth: true,
+    }),
 
   uploadReceipt: (file: File) => {
     const body = new FormData();

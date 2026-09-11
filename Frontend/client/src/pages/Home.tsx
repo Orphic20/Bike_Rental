@@ -2,9 +2,9 @@
   Coastal Utility Atelier: warm daylight, editorial asymmetry, crisp rental utility,
   tactile artwork, and restrained clay-red interaction cues.
 
-  The customer path (landing, catalogue, booking, my rides) runs on the FastAPI
-  service. The staff and admin screens are still local prototypes because their
-  routers do not expose endpoints yet; they are labelled as such in the UI.
+  The customer path (landing, catalogue, booking, my rides) and the staff desk
+  run on the FastAPI service. Admin inventory counts are live; revenue tables
+  are still a local prototype until Phase 4 endpoints exist.
 */
 import { AuthDialog } from "@/components/AuthDialog";
 import foldingBike from "@/assets/folding-bike.jpg";
@@ -15,7 +15,7 @@ import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { MapView } from "@/components/Map";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBikes, useMyBookings } from "@/hooks/useApi";
+import { useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { CLSU_POSITION, WAIVER_VERSION } from "@/lib/constants";
 import {
@@ -34,6 +34,7 @@ import {
   type Booking,
   type PaymentMethod,
   type RateSelected,
+  type StaffBooking,
 } from "@/lib/types";
 import {
   AlertTriangle,
@@ -64,7 +65,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type View = "landing" | "selection" | "customer" | "staff" | "admin";
@@ -94,6 +95,41 @@ const TYPE_COPY: Record<BikeType, { tint: string; tagline: string; blurb: string
 
 function rateFor(bike: Bike, rate: RateSelected): number {
   return toAmount(rate === "weekly" ? bike.weekly_rate : bike.daily_rate);
+}
+
+function canCancelBooking(booking: Booking): boolean {
+  return (
+    booking.rentals.length > 0 &&
+    booking.rentals.every((rental) => rental.status === "reserved")
+  );
+}
+
+function deskStatus(booking: StaffBooking): { label: string; tone: string } {
+  if (booking.payment_status === "pending_verification") {
+    return { label: "GCash review", tone: "clay" };
+  }
+  if (booking.payment_status === "unpaid_pending_pickup") {
+    return { label: "Cash at counter", tone: "clay" };
+  }
+  if (booking.payment_status === "rejected") {
+    return { label: "GCash rejected", tone: "clay" };
+  }
+  if (booking.payment_status === "cancelled") {
+    return { label: "Cancelled", tone: "muted" };
+  }
+  if (booking.rentals.some((rental) => rental.status === "overdue")) {
+    return { label: "Overdue", tone: "clay" };
+  }
+  if (booking.rentals.some((rental) => rental.status === "active")) {
+    return { label: "Out on rent", tone: "navy" };
+  }
+  if (
+    booking.payment_status === "paid" &&
+    booking.rentals.every((rental) => rental.status === "reserved")
+  ) {
+    return { label: "Ready to release", tone: "sage" };
+  }
+  return { label: PAYMENT_STATUS_LABELS[booking.payment_status], tone: "neutral" };
 }
 
 function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: string }) {
@@ -1583,6 +1619,49 @@ function CustomerView({
   );
 }
 
+function CancelRideButton({
+  booking,
+  onDone,
+}: {
+  booking: Booking;
+  onDone: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const cancel = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.cancelBooking(booking.id);
+      toast.success("Reservation cancelled");
+      onDone();
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Could not cancel.");
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <button
+      className="ghost-action"
+      type="button"
+      disabled={busy}
+      onClick={cancel}
+      onBlur={() => {
+        if (!busy) setConfirming(false);
+      }}
+    >
+      {busy ? "Cancelling…" : confirming ? "Confirm cancel" : "Cancel reservation"}
+    </button>
+  );
+}
+
 function MyRides({
   bookings,
   onBookAnother,
@@ -1684,8 +1763,12 @@ function MyRides({
           ))}
 
           <div className="ride-actions">
+            {canCancelBooking(booking) && (
+              <CancelRideButton booking={booking} onDone={reload} />
+            )}
             <button
               className="secondary-button"
+              type="button"
               onClick={() =>
                 toast("Extensions are not available yet", {
                   description: "The extensions API is still being built.",
@@ -1696,6 +1779,7 @@ function MyRides({
             </button>
             <button
               className="ghost-action"
+              type="button"
               onClick={() =>
                 toast("Swaps are not available yet", {
                   description: "The swaps API is still being built.",
@@ -1763,135 +1847,361 @@ const sampleReservations = [
 ];
 
 function StaffView() {
-  const [idChecked, setIdChecked] = useState(false);
-  const [collateralChecked, setCollateralChecked] = useState(false);
+  const { profile } = useAuth();
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"all" | "today" | "outstanding" | "pending">("today");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(query), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const queue = useStaffBookings(search);
+  const today = todayIso();
+
+  const visible = useMemo(() => {
+    const rows = queue.data ?? [];
+    if (tab === "today") return rows.filter((row) => row.expected_pickup_date === today);
+    if (tab === "outstanding") {
+      return rows.filter((row) =>
+        row.rentals.some((rental) => rental.status === "active" || rental.status === "overdue"),
+      );
+    }
+    if (tab === "pending") {
+      return rows.filter(
+        (row) =>
+          row.payment_method === "gcash" && row.payment_status === "pending_verification",
+      );
+    }
+    return rows;
+  }, [queue.data, tab, today]);
+
+  const selected = visible.find((row) => row.id === selectedId) ?? visible[0] ?? null;
+
+  const pickupsToday = (queue.data ?? []).filter(
+    (row) =>
+      row.expected_pickup_date === today &&
+      row.rentals.some((rental) => rental.status === "reserved"),
+  ).length;
+  const returnsDue = (queue.data ?? []).filter((row) =>
+    row.rentals.some((rental) => rental.status === "active" || rental.status === "overdue"),
+  ).length;
+  const needsAttention = (queue.data ?? []).filter(
+    (row) =>
+      row.payment_status === "pending_verification" ||
+      row.rentals.some((rental) => rental.status === "overdue"),
+  ).length;
+
+  const initials = (profile?.name ?? profile?.email ?? "Staff")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  const run = async (label: string, action: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await action();
+      toast.success(label);
+      queue.reload();
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Request failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const bikesLine = (booking: StaffBooking) =>
+    booking.rentals
+      .map((rental) => rental.bike_name ?? "Bike")
+      .join(", ") || "No bikes";
 
   return (
     <div className="product-layout ops-layout">
       <aside className="app-sidebar ops-sidebar">
         <div className="ops-profile">
-          <span className="avatar staff-avatar">JR</span>
+          <span className="avatar staff-avatar">{initials || "ST"}</span>
           <div>
-            <strong>Counter</strong>
-            <small>Staff · Bagong Sikat</small>
+            <strong>{profile?.name || "Counter"}</strong>
+            <small>{profile?.role === "admin" ? "Admin" : "Staff"} · Bagong Sikat</small>
           </div>
         </div>
         <div className="sidebar-nav-label">Operations</div>
-        <button className="sidebar-link active">
+        <button className="sidebar-link active" type="button">
           <LayoutDashboard size={17} /> Today's queue
         </button>
-        <button className="sidebar-link">
+        <button
+          className="sidebar-link"
+          type="button"
+          onClick={() =>
+            toast("Swaps are not available yet", {
+              description: "Phase 5 will add swap requests.",
+            })
+          }
+        >
           <ClipboardCheck size={17} /> Swap requests
         </button>
       </aside>
       <main className="product-main">
         <div className="page-heading ops-heading">
           <div>
-            <span className="micro-label">{formatDateLabel(todayIso())}</span>
+            <span className="micro-label">{formatDateLabel(today)}</span>
             <h1>Counter overview.</h1>
-            <p>Pickups, returns, and everything waiting at the kiosk.</p>
+            <p>Pickups, GCash review, cash, release, and returns.</p>
           </div>
         </div>
-        <PrototypeBanner surface="staff" />
+
+        {queue.error && (
+          <AsyncNote tone="error" message={queue.error} onRetry={queue.reload} />
+        )}
+
         <div className="ops-metrics">
           <div>
             <span className="metric-icon sage-icon">
               <PackageCheck size={18} />
             </span>
             <span className="micro-label">Expected pickups</span>
-            <strong>3</strong>
-            <small>Sample data</small>
+            <strong>{queue.loading && !queue.data ? "…" : pickupsToday}</strong>
+            <small>Reserved for today</small>
           </div>
           <div>
             <span className="metric-icon clay-icon">
               <BikeIcon size={18} />
             </span>
-            <span className="micro-label">Expected returns</span>
-            <strong>4</strong>
-            <small>Sample data</small>
+            <span className="micro-label">Out on rent</span>
+            <strong>{queue.loading && !queue.data ? "…" : returnsDue}</strong>
+            <small>Active or overdue</small>
           </div>
           <div>
             <span className="metric-icon navy-icon">
               <AlertTriangle size={18} />
             </span>
             <span className="micro-label">Needs attention</span>
-            <strong>2</strong>
-            <small>Sample data</small>
+            <strong>{queue.loading && !queue.data ? "…" : needsAttention}</strong>
+            <small>GCash pending or overdue</small>
           </div>
         </div>
+
+        <div className="ops-toolbar">
+          <input
+            className="ops-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name, email, or VC-…"
+            aria-label="Search bookings"
+          />
+          <div className="ops-tabs" role="tablist" aria-label="Queue filters">
+            {(
+              [
+                ["today", "Today"],
+                ["outstanding", "Out"],
+                ["pending", "GCash"],
+                ["all", "All"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                className={tab === id ? "ops-tab active" : "ops-tab"}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="ops-columns">
           <section className="queue-card">
             <div className="card-title-row">
               <div>
                 <span className="micro-label">Handoff queue</span>
-                <h2>Expected pickups</h2>
+                <h2>
+                  {tab === "today"
+                    ? "Today"
+                    : tab === "outstanding"
+                      ? "Outstanding"
+                      : tab === "pending"
+                        ? "GCash pending"
+                        : "All bookings"}
+                </h2>
               </div>
             </div>
+            {queue.loading && !queue.data && <AsyncNote message="Loading the desk…" />}
+            {!queue.loading && visible.length === 0 && (
+              <AsyncNote message="Nothing in this queue." />
+            )}
             <div className="reservation-list">
-              {sampleReservations.map((item, index) => (
-                <article
-                  className={index === 0 ? "reservation-row focused" : "reservation-row"}
-                  key={item.id}
-                >
-                  <div className="reservation-time">
-                    <strong>{item.time}</strong>
-                    <span>{item.id}</span>
-                  </div>
-                  <div className="reservation-person">
-                    <span className="avatar tiny-avatar">
-                      {item.name.split(" ").map((part) => part[0]).join("")}
-                    </span>
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>
-                        {item.bike} · {item.payment}
-                      </span>
+              {visible.map((booking) => {
+                const status = deskStatus(booking);
+                return (
+                  <button
+                    type="button"
+                    className={
+                      selected?.id === booking.id
+                        ? "reservation-row focused"
+                        : "reservation-row"
+                    }
+                    key={booking.id}
+                    onClick={() => setSelectedId(booking.id)}
+                  >
+                    <div className="reservation-time">
+                      <strong>{formatDateLabel(booking.expected_pickup_date)}</strong>
+                      <span>{booking.booking_ref ?? booking.id.slice(0, 8)}</span>
                     </div>
-                  </div>
-                  <Pill tone={item.tone === "review" ? "clay" : "sage"}>{item.status}</Pill>
-                </article>
-              ))}
+                    <div className="reservation-person">
+                      <span className="avatar tiny-avatar">
+                        {booking.customer_name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </span>
+                      <div>
+                        <strong>{booking.customer_name}</strong>
+                        <span>
+                          {bikesLine(booking)} ·{" "}
+                          {booking.payment_method === "cash" ? "Cash" : "GCash"}
+                        </span>
+                      </div>
+                    </div>
+                    <Pill tone={status.tone}>{status.label}</Pill>
+                  </button>
+                );
+              })}
             </div>
           </section>
+
           <section className="handoff-card">
-            <div className="card-title-row">
-              <div>
-                <span className="micro-label">Selected · VC-4821</span>
-                <h2>Approve &amp; release</h2>
-              </div>
-              <Pill tone="clay">Cash pending</Pill>
-            </div>
-            <div className="handoff-checks">
-              <label className={idChecked ? "check-row checked" : "check-row"}>
-                <input
-                  type="checkbox"
-                  checked={idChecked}
-                  onChange={(event) => setIdChecked(event.target.checked)}
-                />
-                <span className="fake-check">{idChecked && <Check size={12} />}</span>
-                <span>Physical ID verified against name</span>
-              </label>
-              <label className={collateralChecked ? "check-row checked" : "check-row"}>
-                <input
-                  type="checkbox"
-                  checked={collateralChecked}
-                  onChange={(event) => setCollateralChecked(event.target.checked)}
-                />
-                <span className="fake-check">{collateralChecked && <Check size={12} />}</span>
-                <span>Exact payment received</span>
-              </label>
-            </div>
-            <button
-              className="primary-button full-button"
-              disabled={!idChecked || !collateralChecked}
-              onClick={() =>
-                toast("Not connected", {
-                  description: "The staff release endpoint does not exist yet.",
-                })
-              }
-            >
-              Approve &amp; release <ArrowUpRight size={15} />
-            </button>
+            {selected ? (
+              <>
+                <div className="card-title-row">
+                  <div>
+                    <span className="micro-label">
+                      Selected · {selected.booking_ref ?? selected.id.slice(0, 8)}
+                    </span>
+                    <h2>{selected.customer_name}</h2>
+                    <p className="handoff-email">{selected.customer_email}</p>
+                  </div>
+                  <Pill tone={deskStatus(selected).tone}>{deskStatus(selected).label}</Pill>
+                </div>
+
+                <p className="handoff-meta">
+                  {formatPeso(selected.total_price)} ·{" "}
+                  {selected.rate_selected === "weekly" ? "Weekly" : "Daily"} · pickup{" "}
+                  {formatDateLabel(selected.expected_pickup_date)}
+                </p>
+
+                {selected.payment_method === "gcash" && selected.gcash_ref_no && (
+                  <p className="handoff-meta">Ref {selected.gcash_ref_no}</p>
+                )}
+                {selected.gcash_receipt_url && (
+                  <a
+                    className="handoff-receipt-link"
+                    href={selected.gcash_receipt_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img
+                      className="handoff-receipt"
+                      src={selected.gcash_receipt_url}
+                      alt="GCash receipt"
+                    />
+                  </a>
+                )}
+
+                {selected.rentals.map((rental) => (
+                  <div className="ride-bike-row" key={rental.id}>
+                    <div className="ride-bike-copy">
+                      <span className="bike-kind">
+                        {rental.bike_type ? BIKE_TYPE_LABELS[rental.bike_type] : "Bike"}
+                      </span>
+                      <h3>{rental.bike_name ?? "Bike"}</h3>
+                      <p>{RENTAL_STATUS_LABELS[rental.status]}</p>
+                    </div>
+                    {(rental.status === "active" || rental.status === "overdue") && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run("Bike returned", () => api.returnRental(rental.id))
+                        }
+                      >
+                        Return
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <div className="handoff-stack">
+                  {selected.payment_method === "cash" &&
+                    selected.payment_status === "unpaid_pending_pickup" && (
+                      <button
+                        className="primary-button full-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run("Cash recorded", () => api.recordCash(selected.id))
+                        }
+                      >
+                        Record cash payment <ArrowUpRight size={15} />
+                      </button>
+                    )}
+                  {selected.payment_method === "gcash" &&
+                    selected.payment_status === "pending_verification" && (
+                      <>
+                        <button
+                          className="primary-button full-button"
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            run("GCash accepted", () =>
+                              api.verifyGcash(selected.id, "accepted"),
+                            )
+                          }
+                        >
+                          Accept GCash <ArrowUpRight size={15} />
+                        </button>
+                        <button
+                          className="ghost-action"
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            run("GCash rejected", () =>
+                              api.verifyGcash(selected.id, "rejected"),
+                            )
+                          }
+                        >
+                          Reject receipt
+                        </button>
+                      </>
+                    )}
+                  {selected.payment_status === "paid" &&
+                    selected.rentals.every((rental) => rental.status === "reserved") && (
+                      <button
+                        className="primary-button full-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run("Bikes released", () => api.releaseBooking(selected.id))
+                        }
+                      >
+                        Release bikes <ArrowUpRight size={15} />
+                      </button>
+                    )}
+                </div>
+              </>
+            ) : (
+              <AsyncNote message="Select a reservation from the queue." />
+            )}
           </section>
         </div>
       </main>

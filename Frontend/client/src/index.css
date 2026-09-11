@@ -510,6 +510,23 @@ button:not(:disabled), a { cursor: pointer; }
 .ops-metrics strong, .admin-metric-card strong { font-family: "Fraunces", Georgia, serif; font-size: 30px; letter-spacing: -.06em; line-height: 1; font-weight: 600; }
 .ops-metrics small, .admin-metric-card small { color: #859188; font-size: 9px; }
 .ops-columns { display: grid; grid-template-columns: 1.25fr .9fr; gap: 20px; align-items: start; }
+.ops-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.ops-search { flex: 1 1 220px; min-width: 0; border: 1px solid #d4dbd1; background: #fffef9; color: #304a41; padding: 10px 12px; font: inherit; font-size: 12px; }
+.ops-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ops-tab { border: 1px solid #d8ded5; background: transparent; color: #617268; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
+.ops-tab.active { background: #304a41; color: #fffaf2; border-color: #304a41; }
+button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-bottom: 1px solid #e4e2d7; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.handoff-email, .handoff-meta { margin: 0 0 8px; color: #aebdb0; font-size: 10px; }
+.handoff-receipt-link { display: block; margin: 8px 0 12px; }
+.handoff-receipt { display: block; width: 100%; max-height: 180px; object-fit: contain; background: #1a2c29; }
+.handoff-stack { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.handoff-stack .full-button { margin-top: 0; }
+.handoff-card .ride-bike-row { grid-template-columns: 1fr auto; border-bottom-color: rgba(226,237,221,.16); }
+.handoff-card .ride-bike-copy h3 { color: #f7f4eb; }
+.handoff-card .ride-bike-copy p, .handoff-card .bike-kind { color: #aebdb0; }
+.handoff-card .ghost-action { color: #d8c4b8; }
+.handoff-card .ghost-action:hover { color: #f3d4c8; }
+.handoff-card .secondary-button { color: #ecf0e6; border-bottom-color: #9eafa2; }
 .queue-card, .handoff-card { padding: 22px; }
 .reservation-list { margin-top: 17px; }
 .reservation-row { display: grid; grid-template-columns: 83px 1fr auto auto; align-items: center; gap: 11px; min-height: 68px; border-bottom: 1px solid #e4e2d7; }
@@ -625,6 +642,7 @@ button:not(:disabled), a { cursor: pointer; }
   .summary-card { grid-template-columns: 105px 1fr; padding: 14px; }.summary-bike-image { height: 95px; }.summary-bike-name h3 { font-size: 19px; }.summary-details { gap: 7px; }.summary-total strong { font-size: 21px; }
   .ride-status-banner { align-items: flex-start; flex-wrap: wrap; }.ride-status-banner > .app-pill { margin-left: 50px; }
   .ride-bike-row { grid-template-columns: 63px 1fr auto; }.ride-bike-row img { width: 63px; height: 60px; }.ride-bike-row > .icon-button { grid-column: 3; grid-row: 1; }.ride-bike-row > .app-pill { grid-column: 2; grid-row: 2; justify-self: start; }.reservation-row { grid-template-columns: 62px 1fr auto; padding: 12px 0; }.reservation-row > .app-pill { grid-column: 2; justify-self: start; }.reservation-row > .icon-button { grid-column: 3; grid-row: 1 / span 2; }.reservation-row.focused { margin: 0 -6px; padding: 0 6px; }
+  .ops-toolbar { flex-direction: column; align-items: stretch; }
   .ops-metrics { grid-template-columns: 1fr 1fr; }.ops-metrics > div:last-child { grid-column: 1 / -1; }.ops-metrics > div { min-height: 120px; }
   .swap-row { grid-template-columns: 34px 1fr auto; }.swap-row .ghost-action { grid-column: 2; justify-self: start; }.swap-row .secondary-button { grid-column: 3; grid-row: 1; }
   .admin-metrics { grid-template-columns: 1fr 1fr; }.admin-metric-card { min-height: 126px; padding: 14px; }.admin-metric-card strong { font-size: 25px; }.admin-metric-card.main-metric { grid-column: 1 / -1; }

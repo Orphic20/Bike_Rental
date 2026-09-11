@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
-import type { Bike, Booking, RateSelected } from "@/lib/types";
+import type { Bike, Booking, RateSelected, StaffBooking } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 
 interface Resource<T> {
@@ -93,6 +93,47 @@ export function useMyBookings(): Resource<Booking[]> {
 
     return () => controller.abort();
   }, [session, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+/** Counter queue. `q` is the search box; empty means every booking. */
+export function useStaffBookings(q: string): Resource<StaffBooking[]> {
+  const { session } = useAuth();
+  const [data, setData] = useState<StaffBooking[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+
+    api
+      .listStaffBookings({ q: q.trim() || undefined }, controller.signal)
+      .then((bookings) => {
+        setData(bookings);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, q, nonce]);
 
   return { data, loading, error, reload };
 }

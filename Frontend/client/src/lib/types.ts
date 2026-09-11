@@ -84,6 +84,13 @@ export interface Booking {
   rentals: Rental[];
 }
 
+export interface StaffBooking extends Booking {
+  customer_name: string;
+  customer_email: string;
+  gcash_ref_no: string | null;
+  gcash_receipt_url: string | null;
+}
+
 export interface BookingCreate {
   bikes: { bike_id: string }[];
   expected_pickup_date: string;

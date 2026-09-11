@@ -217,3 +217,33 @@ def read_booking(
         .order_by(Rental.id)
     ).all()
     return _to_read(booking, list(rentals))
+
+@router.post("/{booking_id}/cancel", response_model=BookingRead)
+def cancel_booking(
+    booking_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+) -> BookingRead:
+    booking = session.get(Booking, booking_id)
+    if booking is None or booking.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    rentals = session.exec(
+        select(Rental, Bike)
+        .join(Bike, Bike.id == Rental.bike_id)
+        .where(Rental.booking_id == booking.id)
+        .order_by(Rental.id)
+    ).all()
+    if not rentals:
+        raise HTTPException(status_code=400, detail="Booking has no rentals")
+    for rental, _bike in rentals:
+        if rental.status != RentalStatus.reserved:
+            raise HTTPException(
+                status_code=400,
+                detail="Booking cannot be cancelled",
+            )
+        rental.status = RentalStatus.cancelled
+    booking.payment_status = PaymentStatus.cancelled
+    session.commit()
+    session.refresh(booking)
+    return _to_read(booking, list(rentals))
