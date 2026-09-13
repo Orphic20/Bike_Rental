@@ -425,3 +425,22 @@ class StaffBookingRead(BookingRead):
     customer_email: str
     gcash_ref_no: Optional[str] = None
     gcash_receipt_url: Optional[str] = None
+
+
+
+class BikeCreate(SQLModel):
+    name: str
+    type: BikeType
+    daily_rate: Decimal
+    weekly_rate: Optional[Decimal] = None
+    image_url: Optional[str] = None
+    status: BikeStatus = BikeStatus.available
+
+class BikeUpdate(SQLModel):
+    name: Optional[str] = None
+    type: Optional[BikeType] = None
+    daily_rate: Optional[Decimal] = None
+    weekly_rate: Optional[Decimal] = None
+    image_url: Optional[str] = None
+    status: Optional[BikeStatus] = None
+

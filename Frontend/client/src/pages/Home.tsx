@@ -15,7 +15,7 @@ import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { MapView } from "@/components/Map";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
+import { useAdminBikes, useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { CLSU_POSITION, WAIVER_VERSION } from "@/lib/constants";
 import {
@@ -26,10 +26,12 @@ import {
   todayIso,
 } from "@/lib/format";
 import {
+  BIKE_STATUS_LABELS,
   BIKE_TYPE_LABELS,
   PAYMENT_STATUS_LABELS,
   RENTAL_STATUS_LABELS,
   type Bike,
+  type BikeStatus,
   type BikeType,
   type Booking,
   type PaymentMethod,
@@ -972,7 +974,7 @@ function CustomerSidebar({
           <ShieldCheck size={17} />
           <span>
             <strong>Need a hand?</strong>
-            <small>Ask us at the kiosk</small>
+            <small>Ask us at the counter</small>
           </span>
         </div>
       </div>
@@ -1727,7 +1729,7 @@ function MyRides({
                 <span className="micro-label">Balance due</span>
                 <h3>
                   {booking.payment_method === "cash"
-                    ? "Pay the exact total at the kiosk"
+                    ? "Pay the exact total at the counter"
                     : "Awaiting GCash verification"}
                 </h3>
                 <p>
@@ -2210,13 +2212,54 @@ function StaffView() {
 }
 
 function AdminView() {
-  const { data: bikes, loading, error, reload } = useBikes(null, "daily");
+  const fleet = useAdminBikes();
+  const { data: bikes, loading, error, reload } = fleet;
+  const [screen, setScreen] = useState<"overview" | "bikes">("bikes");
+  const [name, setName] = useState("");
+  const [type, setType] = useState<BikeType>("japanese");
+  const [dailyRate, setDailyRate] = useState("");
+  const [weeklyRate, setWeeklyRate] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [photoName, setPhotoName] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [status, setStatus] = useState<Exclude<BikeStatus, "rented">>("available");
+  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const counts = useMemo(() => {
     const tally = { available: 0, rented: 0, maintenance: 0, retired: 0 };
     for (const bike of bikes ?? []) tally[bike.status] += 1;
     return tally;
   }, [bikes]);
+
+  const addBike = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api.createAdminBike({
+        name: name.trim(),
+        type,
+        daily_rate: dailyRate,
+        weekly_rate: weeklyRate.trim() ? weeklyRate : null,
+        image_url: imageUrl.trim() ? imageUrl.trim() : null,
+        status,
+      });
+      toast.success("Bike added");
+      setName("");
+      setDailyRate("");
+      setWeeklyRate("");
+      setImageUrl("");
+      setPhotoName("");
+      setType("japanese");
+      setStatus("available");
+      setAdding(false);
+      reload();
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Could not add bike.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="product-layout admin-layout">
@@ -2231,13 +2274,29 @@ function AdminView() {
           </div>
         </div>
         <div className="sidebar-nav-label">Overview</div>
-        <button className="sidebar-link active">
+        <button
+          className={screen === "overview" ? "sidebar-link active" : "sidebar-link"}
+          type="button"
+          onClick={() => setScreen("overview")}
+        >
           <LayoutDashboard size={17} /> Business overview
         </button>
-        <button className="sidebar-link">
+        <button
+          className={screen === "bikes" ? "sidebar-link active" : "sidebar-link"}
+          type="button"
+          onClick={() => setScreen("bikes")}
+        >
           <BikeIcon size={17} /> Bike management
         </button>
-        <button className="sidebar-link">
+        <button
+          className="sidebar-link"
+          type="button"
+          onClick={() =>
+            toast("User management is not available yet", {
+              description: "Phase 4 user endpoints are still being built.",
+            })
+          }
+        >
           <Users size={17} /> User management
         </button>
       </aside>
@@ -2245,16 +2304,24 @@ function AdminView() {
         <div className="page-heading ops-heading">
           <div>
             <span className="micro-label">Admin workspace · {formatDateLabel(todayIso())}</span>
-            <h1>Business overview.</h1>
-            <p>Fleet status is live. Revenue and reservations still need their endpoints.</p>
+            <h1>{screen === "bikes" ? "Bike management." : "Business overview."}</h1>
+            <p>
+              {screen === "bikes"
+                ? "Fleet list first. Open the form only when you need a new bike."
+                : "Fleet status is live from GET /admin/bikes, including retired."}
+            </p>
           </div>
+          {screen === "bikes" && !adding && (
+            <button className="primary-button" type="button" onClick={() => setAdding(true)}>
+              Add bike <ArrowUpRight size={15} />
+            </button>
+          )}
         </div>
 
-        {error ? (
-          <AsyncNote tone="error" message={error} onRetry={reload} />
-        ) : (
+        {error && <AsyncNote tone="error" message={error} onRetry={reload} />}
+
+        {screen === "overview" && !error && (
           <>
-            {/* Inventory health is real: it comes from GET /bikes. */}
             <section className="admin-card status-card">
               <div className="card-title-row">
                 <div>
@@ -2299,17 +2366,6 @@ function AdminView() {
                   <span className="micro-label">Latest activity · sample</span>
                   <h2>Reservations</h2>
                 </div>
-                <button className="text-button">
-                  Filter <Search size={13} />
-                </button>
-              </div>
-              <div className="table-head">
-                <span>Reference</span>
-                <span>Customer</span>
-                <span>Bike</span>
-                <span>Status</span>
-                <span>Payment</span>
-                <span />
               </div>
               {sampleReservations.map((item) => (
                 <div className="table-row" key={item.id}>
@@ -2318,7 +2374,167 @@ function AdminView() {
                   <span>{item.bike}</span>
                   <Pill tone={item.tone === "review" ? "clay" : "sage"}>{item.status}</Pill>
                   <span>{item.payment}</span>
-                  <span />
+                </div>
+              ))}
+            </section>
+          </>
+        )}
+
+        {screen === "bikes" && (
+          <>
+            {adding && (
+            <section className="admin-card">
+              <div className="card-title-row">
+                <div>
+                  <span className="micro-label">New inventory</span>
+                  <h2>Add a bike</h2>
+                </div>
+                <button
+                  className="ghost-action"
+                  type="button"
+                  onClick={() => setAdding(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+              <form className="admin-bike-form" onSubmit={addBike}>
+                <label className="admin-field">
+                  <span>Name</span>
+                  <input
+                    className="admin-input"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    placeholder="e.g. Japanese 04"
+                  />
+                </label>
+                <label className="admin-field">
+                  <span>Type</span>
+                  <select
+                    className="admin-input"
+                    value={type}
+                    onChange={(event) => setType(event.target.value as BikeType)}
+                  >
+                    {BIKE_TYPES.map((value) => (
+                      <option key={value} value={value}>
+                        {BIKE_TYPE_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span>Daily rate</span>
+                  <input
+                    className="admin-input"
+                    value={dailyRate}
+                    onChange={(event) => setDailyRate(event.target.value)}
+                    required
+                    inputMode="decimal"
+                    placeholder="150.00"
+                  />
+                </label>
+                <label className="admin-field">
+                  <span>Weekly rate</span>
+                  <input
+                    className="admin-input"
+                    value={weeklyRate}
+                    onChange={(event) => setWeeklyRate(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="Optional"
+                  />
+                </label>
+                <div className="admin-field admin-field-wide">
+                  <span>Photo</span>
+                  <label
+                    className={imageUrl ? "upload-proof uploaded" : "upload-proof"}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingPhoto}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (!file) return;
+                        if (!file.type.startsWith("image/")) {
+                          toast.warning("Use an image", {
+                            description: "PNG, JPG, or WEBP.",
+                          });
+                          return;
+                        }
+                        if (file.size > 8 * 1024 * 1024) {
+                          toast.warning("Image is too large", {
+                            description: "Keep it under 8 MB.",
+                          });
+                          return;
+                        }
+                        setUploadingPhoto(true);
+                        void api
+                          .uploadBikePhoto(file)
+                          .then(({ url }) => {
+                            setImageUrl(url);
+                            setPhotoName(file.name);
+                          })
+                          .catch((cause) => {
+                            setImageUrl("");
+                            setPhotoName("");
+                            toast.error(
+                              cause instanceof ApiError
+                                ? cause.message
+                                : "Could not upload the photo.",
+                            );
+                          })
+                          .finally(() => setUploadingPhoto(false));
+                      }}
+                    />
+                    <span>
+                      {uploadingPhoto
+                        ? "Uploading…"
+                        : photoName || (imageUrl ? "Photo uploaded" : "Choose a photo")}
+                    </span>
+                  </label>
+                  {imageUrl && (
+                    <img className="admin-photo-thumb" src={imageUrl} alt="" />
+                  )}
+                </div>
+                <label className="admin-field">
+                  <span>Status</span>
+                  <select
+                    className="admin-input"
+                    value={status}
+                    onChange={(event) =>
+                      setStatus(event.target.value as Exclude<BikeStatus, "rented">)
+                    }
+                  >
+                    <option value="available">Available</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="retired">Retired</option>
+                  </select>
+                </label>
+                <button className="primary-button" type="submit" disabled={busy}>
+                  {busy ? "Saving…" : "Save bike"} <ArrowUpRight size={15} />
+                </button>
+              </form>
+            </section>
+            )}
+
+            <section className="admin-card">
+              <div className="card-title-row">
+                <div>
+                  <span className="micro-label">Fleet · live</span>
+                  <h2>All bikes</h2>
+                </div>
+                <Pill tone="sage">{bikes?.length ?? 0}</Pill>
+              </div>
+              {loading && !bikes && <AsyncNote message="Loading fleet…" />}
+              {(bikes ?? []).map((bike) => (
+                <div className="table-row" key={bike.id}>
+                  <strong>{bike.name}</strong>
+                  <span>{BIKE_TYPE_LABELS[bike.type]}</span>
+                  <span>{formatPeso(bike.daily_rate)}</span>
+                  <Pill tone={bike.status === "available" ? "sage" : "muted"}>
+                    {BIKE_STATUS_LABELS[bike.status]}
+                  </Pill>
                 </div>
               ))}
             </section>

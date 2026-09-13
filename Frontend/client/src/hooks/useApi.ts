@@ -137,3 +137,44 @@ export function useStaffBookings(q: string): Resource<StaffBooking[]> {
 
   return { data, loading, error, reload };
 }
+
+/** Full fleet including retired. Admin token only. */
+export function useAdminBikes(): Resource<Bike[]> {
+  const { session } = useAuth();
+  const [data, setData] = useState<Bike[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+
+    api
+      .listAdminBikes(controller.signal)
+      .then((bikes) => {
+        setData(bikes);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, nonce]);
+
+  return { data, loading, error, reload };
+}

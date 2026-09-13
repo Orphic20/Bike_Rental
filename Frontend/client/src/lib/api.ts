@@ -1,6 +1,7 @@
 import { getAccessToken } from "@/lib/supabase";
 import type {
   Bike,
+  BikeCreate,
   BikeType,
   Booking,
   BookingCreate,
@@ -107,6 +108,12 @@ function extractDetail(payload: unknown, status: number): string {
 export const api = {
   health: () => request<{ status: string }>("/health"),
 
+  listAdminBikes: (signal?: AbortSignal) =>
+    request<Bike[]>("/admin/bikes", { auth: true, signal }),
+
+  createAdminBike: (body: BikeCreate) =>
+    request<Bike>("/admin/bikes", { method: "POST", body, auth: true }),
+
   listBikes: (
     params: {
       type?: BikeType;
@@ -164,6 +171,16 @@ export const api = {
       method: "POST",
       auth: true,
     }),
+
+  uploadBikePhoto: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<{ url: string }>("/uploads/bike", {
+      method: "POST",
+      body,
+      auth: true,
+    });
+  },
 
   uploadReceipt: (file: File) => {
     const body = new FormData();

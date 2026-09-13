@@ -101,10 +101,26 @@ export interface BookingCreate {
   waiver_version: string;
 }
 
+export interface BikeCreate {
+  name: string;
+  type: BikeType;
+  daily_rate: string;
+  weekly_rate?: string | null;
+  image_url?: string | null;
+  status?: Exclude<BikeStatus, "rented">;
+}
+
 export const BIKE_TYPE_LABELS: Record<BikeType, string> = {
   japanese: "Japanese bike",
   folding: "Folding bike",
   mountain: "Mountain bike",
+};
+
+export const BIKE_STATUS_LABELS: Record<BikeStatus, string> = {
+  available: "Available",
+  rented: "Rented",
+  maintenance: "Maintenance",
+  retired: "Retired",
 };
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
