@@ -7,10 +7,10 @@
   are still a local prototype until Phase 4 endpoints exist.
 */
 import { AuthDialog } from "@/components/AuthDialog";
-import foldingBike from "@/assets/folding-bike.jpg";
-import japaneseBike from "@/assets/japanese-bike.jpg";
+import foldingBike from "@/assets/folding-bike.png";
+import japaneseBike from "@/assets/japanese-bike.png";
 import lingapRouteCard from "@/assets/lingap_routecard.jpg";
-import mountainBike from "@/assets/mountain-bike.jpg";
+import mountainBike from "@/assets/mountain-bike.png";
 import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { MapView } from "@/components/Map";
@@ -872,7 +872,7 @@ function SelectionView({
                       <p>
                         {rate === "weekly" && bike.weekly_rate === null
                           ? "No weekly rate for this bike."
-                          : "Helmet · Lock · Ready to ride"}
+                          : "Ready to ride"}
                       </p>
                       <div>
                         <strong>{formatPeso(rateFor(bike, rate))}</strong>
@@ -1586,7 +1586,7 @@ function CustomerView({
                     <div className="summary-cart-copy">
                       <span className="bike-kind">{BIKE_TYPE_LABELS[bike.type]}</span>
                       <strong>{bike.name}</strong>
-                      <small>Helmet · Lock · Ready to ride</small>
+                      <small>Ready to ride</small>
                     </div>
                     <b>{formatPeso(rateFor(bike, rate))}</b>
                   </div>
