@@ -47,7 +47,6 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronDown,
   ClipboardCheck,
   Clock3,
   CreditCard,
@@ -130,6 +129,12 @@ function deskStatus(booking: StaffBooking): { label: string; tone: string } {
     booking.rentals.every((rental) => rental.status === "reserved")
   ) {
     return { label: "Ready to release", tone: "sage" };
+  }
+  if (
+    booking.rentals.length > 0 &&
+    booking.rentals.every((rental) => rental.status === "returned")
+  ) {
+    return { label: "Returned", tone: "sage" };
   }
   return { label: PAYMENT_STATUS_LABELS[booking.payment_status], tone: "neutral" };
 }
@@ -239,10 +244,12 @@ function AppHeader({
               >
                 <LogOut size={17} />
               </button>
-              <button className="profile-chip" onClick={() => setView("customer")}>
+              <button
+                className="profile-chip"
+                onClick={() => setView("customer")}
+                aria-label="My rides"
+              >
                 <span className="avatar">{initials || "MB"}</span>
-                <span className="profile-name">{profile.name || profile.email}</span>
-                <ChevronDown size={13} />
               </button>
             </>
           ) : (
@@ -1197,7 +1204,7 @@ function CustomerView({
           <div>
             <span className="micro-label">New reservation</span>
             <h1>Book your ride.</h1>
-            <p>Set your date, choose your rate, and we'll have it waiting at the kiosk.</p>
+            <p>Set your date, choose your rate, and we'll have it waiting at the counter.</p>
           </div>
           <Pill tone="sage">
             <span className="status-dot" /> {cart.length} bike
