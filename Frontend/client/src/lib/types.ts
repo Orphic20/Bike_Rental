@@ -119,6 +119,17 @@ export interface BikeUpdate {
   status?: Exclude<BikeStatus, "rented">;
 }
 
+export interface ShopSettings {
+  is_open: boolean;
+  updated_at: string | null;
+  reason: string | null;
+}
+
+export interface ShopUpdate {
+  is_open: boolean;
+  reason?: string | null;
+}
+
 export const BIKE_TYPE_LABELS: Record<BikeType, string> = {
   japanese: "Japanese bike",
   folding: "Folding bike",

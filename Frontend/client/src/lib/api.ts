@@ -4,6 +4,8 @@ import type {
   BikeCreate,
   BikeType,
   BikeUpdate,
+  ShopSettings,
+  ShopUpdate,
   Booking,
   BookingCreate,
   RateSelected,
@@ -117,6 +119,12 @@ export const api = {
 
   updateAdminBike: (id: string, body: BikeUpdate) =>
     request<Bike>(`/admin/bikes/${id}`, { method: "PATCH", body, auth: true }),
+
+  getShopSettings: (signal?: AbortSignal) =>
+    request<ShopSettings>("/shop/settings", { signal }),
+
+  updateShopSettings: (body: ShopUpdate) =>
+    request<ShopSettings>("/admin/shop/settings", { method: "PUT", body, auth: true }),
 
   listBikes: (
     params: {

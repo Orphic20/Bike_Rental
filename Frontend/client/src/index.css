@@ -337,8 +337,9 @@ button:not(:disabled), a { cursor: pointer; }
 
 /* Coastal Utility Atelier app layer: keep operations calm, legible, tactile, and locally grounded. */
 .app-shell { min-height: 100vh; background: #f6f3ec; color: #243936; }
-.app-topline { height: 30px; padding: 0 3.4vw; background: #223633; color: #cdd8cd; display: flex; align-items: center; justify-content: space-between; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.app-topline { min-height: 30px; padding: 0 3.4vw; background: #223633; color: #cdd8cd; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .app-topline span { display: inline-flex; align-items: center; gap: 8px; }
+.topline-closed { color: #f0cfc6; font-weight: 800; max-width: min(620px, 62vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-header { height: 76px; padding: 0 3.4vw; display: flex; align-items: center; gap: 30px; background: #fbf9f3; border-bottom: 1px solid #e1e0d6; position: sticky; top: 0; z-index: 20; }
 .app-brand { border: 0; background: transparent; display: flex; align-items: center; gap: 10px; color: #223633; padding: 0; }
 .app-brand > span:last-child { font-family: "Fraunces", Georgia, serif; font-weight: 650; letter-spacing: -.06em; font-size: 23px; }
@@ -677,7 +678,8 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
   .product-main { padding: 38px 22px 30px; }
   .ops-columns, .admin-overview-grid, .rides-grid { grid-template-columns: 1fr; }
   .handoff-card { order: -1; }
-  .app-topline { padding: 0 22px; }.app-topline span:last-child { display: none; }
+  .app-topline { height: auto; min-height: 30px; padding: 7px 22px; flex-wrap: wrap; }
+  .topline-closed { display: inline-flex; white-space: normal; max-width: 100%; }
   .app-header { padding: 0 22px; gap: 12px; }.role-tab { padding: 0 9px; }.role-tab.active::after { left: 9px; right: 9px; }
   .prototype-disclaimer { flex-direction: column; align-items: center; gap: 5px; text-align: center; padding-left: 20px; padding-right: 20px; }
 }
@@ -933,8 +935,25 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 @media (max-width: 560px) { .style-date-button { width: 100%; justify-content: center; } }
 
 /* Coastal Utility Atelier operations layer: shop status is visible, calm, and reversible from Admin. */
-.admin-heading-actions { display: flex; align-items: center; gap: 10px; }.shop-status-button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 13px; border: 1px solid #becdbd; background: #e5eee0; color: #486258; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; transition: background .18s ease, border-color .18s ease, transform .18s ease; }.shop-status-button:hover { transform: translateY(-2px); }.shop-status-button.closed { border-color: #ddbbb1; background: #f1dfd9; color: #a64c3e; }.closed-dot { background: #c84c3d !important; box-shadow: 0 0 0 3px rgba(200,76,61,.12); }
-@media (max-width: 680px) { .admin-heading-actions { align-items: stretch; flex-direction: column-reverse; }.admin-heading-actions .primary-button, .shop-status-button { justify-content: center; width: 100%; } }
+.admin-heading-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.shop-status-card { margin-bottom: 22px; }
+.shop-status-card .shop-closed-reason { margin: 8px 0 0; color: #a64c3e; font-size: 14px; font-weight: 700; line-height: 1.4; }
+.shop-status-card.is-closed { border-color: #ddbbb1; background: #f8eee9; }
+.shop-reason-field { max-width: 420px; margin: 14px 0 12px; }
+.shop-status-button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 13px; border: 1px solid #becdbd; background: #e5eee0; color: #486258; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; transition: background .18s ease, border-color .18s ease, transform .18s ease; }
+.shop-status-button:hover { transform: translateY(-2px); }
+.shop-status-button.closed { border-color: #ddbbb1; background: #f1dfd9; color: #a64c3e; }
+.shop-status-button:disabled { opacity: .6; cursor: wait; transform: none; }
+.shop-closed-banner { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; padding: 10px 3.4vw; background: #f1dfd9; color: #8d4336; border-bottom: 1px solid #ddbbb1; font-size: 12px; }
+.shop-closed-banner strong { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.shop-closed-banner span { font-weight: 600; }
+.closed-dot { background: #c84c3d !important; box-shadow: 0 0 0 3px rgba(200,76,61,.12); }
+@media (max-width: 680px) {
+  .admin-heading-actions { align-items: stretch; flex-direction: column-reverse; }
+  .admin-heading-actions .primary-button, .shop-status-button { justify-content: center; width: 100%; }
+  .shop-reason-field { max-width: none; }
+  .shop-closed-banner { padding: 11px 22px; }
+}
 
 /* Coastal Utility Atelier — interactive CLSU location module: tactile map surface, clay-red pin card, restrained controls. */
 .clsu-map-shell { position: relative; min-height: 360px; overflow: hidden; background: #dfe7dc; border: 1px solid rgba(27, 52, 47, .16); box-shadow: 14px 14px 0 rgba(20, 53, 47, .08); }

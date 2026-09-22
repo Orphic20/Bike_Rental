@@ -36,6 +36,7 @@ import {
   type Booking,
   type PaymentMethod,
   type RateSelected,
+  type ShopSettings,
   type StaffBooking,
 } from "@/lib/types";
 import {
@@ -180,7 +181,27 @@ function AppHeader({
 }) {
   const { session, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shopNotice, setShopNotice] = useState<ShopSettings | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .getShopSettings(controller.signal)
+      .then(setShopNotice)
+      .catch(() => {
+        if (!controller.signal.aborted) setShopNotice(null);
+      });
+    const onChange = (event: Event) => {
+      const detail = (event as CustomEvent<ShopSettings>).detail;
+      if (detail) setShopNotice(detail);
+    };
+    window.addEventListener("shop-settings", onChange);
+    return () => {
+      controller.abort();
+      window.removeEventListener("shop-settings", onChange);
+    };
+  }, []);
 
   const role = profile?.role;
   const tabs: { id: View; label: string }[] = [
@@ -253,6 +274,11 @@ function AppHeader({
         <span className="topline-date">
           Today · {formatDateLabel(todayIso())}
         </span>
+        {shopNotice && !shopNotice.is_open && (
+          <span className="topline-closed">
+            Closed{shopNotice.reason ? ` · ${shopNotice.reason}` : ""}
+          </span>
+        )}
       </div>
       <header className="app-header">
         <button
@@ -327,6 +353,12 @@ function AppHeader({
           </button>
         </div>
       </header>
+      {shopNotice && !shopNotice.is_open && (
+        <div className="shop-closed-banner" role="status">
+          <strong>Shop is closed</strong>
+          <span>{shopNotice.reason || "Please check back later."}</span>
+        </div>
+      )}
       {menuOpen && (
         <>
           <button
@@ -2335,7 +2367,44 @@ function AdminView() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Bike | null>(null);
   const [query, setQuery] = useState("");
+  const [shop, setShop] = useState<ShopSettings | null>(null);
+  const [closeReason, setCloseReason] = useState("");
+  const [shopBusy, setShopBusy] = useState(false);
   const formRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .getShopSettings(controller.signal)
+      .then(setShop)
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        toast.error(
+          cause instanceof ApiError ? cause.message : "Could not load shop status.",
+        );
+      });
+    return () => controller.abort();
+  }, []);
+
+  const saveShop = async (isOpen: boolean) => {
+    setShopBusy(true);
+    try {
+      const next = await api.updateShopSettings({
+        is_open: isOpen,
+        reason: isOpen ? null : closeReason.trim() || null,
+      });
+      setShop(next);
+      setCloseReason("");
+      window.dispatchEvent(new CustomEvent("shop-settings", { detail: next }));
+      toast.success(isOpen ? "Shop is open" : "Shop is closed");
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not update shop status.",
+      );
+    } finally {
+      setShopBusy(false);
+    }
+  };
 
   const resetForm = () => {
     setName("");
@@ -2471,6 +2540,43 @@ function AdminView() {
         </button>
       </aside>
       <main className="product-main">
+        <section className={shop && !shop.is_open ? "admin-card shop-status-card is-closed" : "admin-card shop-status-card"}>
+          <div className="card-title-row">
+            <div>
+              <span className="micro-label">Shop status · live</span>
+              <h2>{!shop ? "…" : shop.is_open ? "Shop is open" : "Shop is closed"}</h2>
+              {shop && !shop.is_open && (
+                <p className="shop-closed-reason">
+                  {shop.reason || "No reason given."}
+                </p>
+              )}
+            </div>
+            <Pill tone={shop && !shop.is_open ? "clay" : "sage"}>
+              {!shop ? "…" : shop.is_open ? "Open" : "Closed"}
+            </Pill>
+          </div>
+          {shop?.is_open && (
+            <label className="admin-field shop-reason-field">
+              <span>Reason if closing</span>
+              <input
+                className="admin-input"
+                value={closeReason}
+                onChange={(event) => setCloseReason(event.target.value)}
+                placeholder="e.g. Heavy rain, pickup moved to tomorrow"
+                disabled={shopBusy}
+              />
+            </label>
+          )}
+          <button
+            className={shop && !shop.is_open ? "shop-status-button closed" : "shop-status-button"}
+            type="button"
+            disabled={shopBusy || !shop}
+            onClick={() => shop && void saveShop(!shop.is_open)}
+          >
+            {shopBusy ? "Saving…" : shop?.is_open ? "Close shop" : "Open shop"}
+          </button>
+        </section>
+
         <div className="page-heading ops-heading">
           <div>
             <span className="micro-label">Admin workspace · {formatDateLabel(todayIso())}</span>

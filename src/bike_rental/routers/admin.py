@@ -16,7 +16,12 @@ from bike_rental.models import (
     BikeUpdate,
     Rental,
     RentalStatus,
+    ShopSettings,
+    ShopSettingsRead,
+    ShopStatusLog,
+    ShopUpdate,
 )
+from bike_rental.routers.shop import to_shop_read
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -83,7 +88,8 @@ def update_bike(
     bike = session.get(Bike, bike_id)
     if bike is None:
         raise HTTPException(status_code=404, detail="Bike not found")
-
+    if body.status == BikeStatus.rented:
+        raise HTTPException(status_code=400, detail="Cannot set a bike as rented")
 
     data = body.model_dump(exclude_unset=True)
     if "name" in data:
@@ -103,6 +109,18 @@ def update_bike(
             )
         data["name"] = name
 
+    if "status" in data:
+        outstanding = session.exec(
+            select(Rental).where(
+                Rental.bike_id == bike.id,
+                Rental.status.in_((RentalStatus.active, RentalStatus.overdue)),
+            )
+        ).first()
+        if outstanding:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot change status while the bike is out",
+            )
 
     for key, value in data.items():
         setattr(bike, key, value)
@@ -110,3 +128,30 @@ def update_bike(
     session.commit()
     session.refresh(bike)
     return _to_bike_read(bike)
+
+@router.put("/shop/settings", response_model=ShopSettingsRead)
+def update_shop_settings(
+    body: ShopUpdate,
+    user: AdminUser,
+    session: SessionDep,
+) -> ShopSettingsRead:
+    settings = session.get(ShopSettings, 1)
+    if settings is None:
+        raise HTTPException(status_code=404, detail="Shop settings not found")
+    settings.is_open = body.is_open
+    session.add(settings)
+    session.flush()
+
+    reason = (body.reason or "").strip() or None
+    log = session.exec(
+        select(ShopStatusLog).order_by(ShopStatusLog.created_at.desc())
+    ).first()
+    if log:
+        if not body.is_open and reason:
+            log.reason = reason
+        log.changed_by_admin_id = user.id
+        session.add(log)
+
+    session.commit()
+    session.refresh(settings)
+    return to_shop_read(session, settings)

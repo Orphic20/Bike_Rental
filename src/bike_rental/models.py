@@ -444,3 +444,14 @@ class BikeUpdate(SQLModel):
     image_url: Optional[str] = None
     status: Optional[BikeStatus] = None
 
+
+class ShopSettingsRead(SQLModel):
+    is_open: bool
+    updated_at: Optional[datetime] = None
+    reason: Optional[str] = None
+
+
+class ShopUpdate(SQLModel):
+    is_open: bool
+    reason: Optional[str] = None
+
