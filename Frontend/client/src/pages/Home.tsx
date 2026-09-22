@@ -66,7 +66,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type View = "landing" | "selection" | "customer" | "staff" | "admin";
@@ -180,6 +180,7 @@ function AppHeader({
 }) {
   const { session, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   const role = profile?.role;
   const tabs: { id: View; label: string }[] = [
@@ -199,6 +200,53 @@ function AppHeader({
     .map((part) => part[0]?.toUpperCase())
     .join("");
 
+  const closeMenu = () => setMenuOpen(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("mobile-nav-open", menuOpen);
+    return () => document.documentElement.classList.remove("mobile-nav-open");
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      document.documentElement.style.removeProperty("--mobile-nav-tabs-h");
+      return;
+    }
+    const el = drawerRef.current;
+    const syncHeight = () => {
+      document.documentElement.style.setProperty(
+        "--mobile-nav-tabs-h",
+        `${el?.offsetHeight ?? 0}px`,
+      );
+    };
+    syncHeight();
+    if (!el) return;
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--mobile-nav-tabs-h");
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest(".mobile-menu-button")) return;
+      if (target.closest(".sidebar-link")) closeMenu();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("click", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onClick);
+    };
+  }, [menuOpen]);
+
   return (
     <>
       <div className="app-topline">
@@ -209,7 +257,10 @@ function AppHeader({
       <header className="app-header">
         <button
           className="app-brand"
-          onClick={() => setView("landing")}
+          onClick={() => {
+            closeMenu();
+            setView("landing");
+          }}
           aria-label="Go to Muñoz Bike Rental home"
         >
           <span className="app-brand-mark">
@@ -238,6 +289,7 @@ function AppHeader({
                 onClick={() => {
                   void signOut();
                   toast.success("Signed out");
+                  closeMenu();
                   setView("landing");
                 }}
                 aria-label="Sign out"
@@ -246,7 +298,10 @@ function AppHeader({
               </button>
               <button
                 className="profile-chip"
-                onClick={() => setView("customer")}
+                onClick={() => {
+                  closeMenu();
+                  setView("customer");
+                }}
                 aria-label="My rides"
               >
                 <span className="avatar">{initials || "MB"}</span>
@@ -258,14 +313,60 @@ function AppHeader({
             </button>
           )}
           <button
-            className="mobile-menu-button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
+            className={
+              view === "admin" || view === "staff" || view === "customer"
+                ? "mobile-menu-button"
+                : "mobile-menu-button mobile-menu-tabs-only"
+            }
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-nav-drawer"
           >
             {menuOpen ? <X size={19} /> : <Menu size={19} />}
           </button>
         </div>
       </header>
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="mobile-nav-backdrop"
+            aria-label="Close menu"
+            onClick={closeMenu}
+          />
+          <div id="mobile-nav-drawer" className="mobile-nav-drawer" ref={drawerRef}>
+            <nav className="mobile-nav-tabs" aria-label="Pages">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  className={view === tab.id ? "mobile-nav-tab active" : "mobile-nav-tab"}
+                  onClick={() => {
+                    closeMenu();
+                    setView(tab.id);
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+            {session && profile && (
+              <button
+                className="mobile-nav-signout"
+                type="button"
+                onClick={() => {
+                  void signOut();
+                  toast.success("Signed out");
+                  closeMenu();
+                  setView("landing");
+                }}
+              >
+                <LogOut size={16} /> Sign out
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -2232,6 +2333,39 @@ function AdminView() {
   const [status, setStatus] = useState<Exclude<BikeStatus, "rented">>("available");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Bike | null>(null);
+  const [query, setQuery] = useState("");
+  const formRef = useRef<HTMLElement>(null);
+
+  const resetForm = () => {
+    setName("");
+    setDailyRate("");
+    setWeeklyRate("");
+    setImageUrl("");
+    setPhotoName("");
+    setType("japanese");
+    setStatus("available");
+    setAdding(false);
+    setEditing(null);
+  };
+
+  const startEdit = (bike: Bike) => {
+    setAdding(false);
+    setEditing(bike);
+    setName(bike.name);
+    setType(bike.type);
+    setDailyRate(bike.daily_rate);
+    setWeeklyRate(bike.weekly_rate ?? "");
+    setImageUrl(bike.image_url ?? "");
+    setPhotoName("");
+    setStatus(bike.status === "rented" ? "available" : bike.status);
+  };
+
+  useEffect(() => {
+    if (!adding && !editing) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [adding, editing]);
 
   const counts = useMemo(() => {
     const tally = { available: 0, rented: 0, maintenance: 0, retired: 0 };
@@ -2239,30 +2373,59 @@ function AdminView() {
     return tally;
   }, [bikes]);
 
-  const addBike = async (event: React.FormEvent) => {
+  const visibleBikes = useMemo(() => {
+    const rows = bikes ?? [];
+    const needle = query.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((bike) => {
+      const haystack = [
+        bike.name,
+        bike.type,
+        BIKE_TYPE_LABELS[bike.type],
+        bike.status,
+        BIKE_STATUS_LABELS[bike.status],
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [bikes, query]);
+
+  const saveBike = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     try {
-      await api.createAdminBike({
-        name: name.trim(),
-        type,
-        daily_rate: dailyRate,
-        weekly_rate: weeklyRate.trim() ? weeklyRate : null,
-        image_url: imageUrl.trim() ? imageUrl.trim() : null,
-        status,
-      });
-      toast.success("Bike added");
-      setName("");
-      setDailyRate("");
-      setWeeklyRate("");
-      setImageUrl("");
-      setPhotoName("");
-      setType("japanese");
-      setStatus("available");
-      setAdding(false);
+      if (editing) {
+        await api.updateAdminBike(editing.id, {
+          name: name.trim(),
+          type,
+          daily_rate: dailyRate,
+          weekly_rate: weeklyRate.trim() ? weeklyRate : null,
+          image_url: imageUrl.trim() ? imageUrl.trim() : null,
+          ...(editing.status === "rented" ? {} : { status }),
+        });
+        toast.success("Bike updated");
+      } else {
+        await api.createAdminBike({
+          name: name.trim(),
+          type,
+          daily_rate: dailyRate,
+          weekly_rate: weeklyRate.trim() ? weeklyRate : null,
+          image_url: imageUrl.trim() ? imageUrl.trim() : null,
+          status,
+        });
+        toast.success("Bike added");
+      }
+      resetForm();
       reload();
     } catch (cause) {
-      toast.error(cause instanceof ApiError ? cause.message : "Could not add bike.");
+      toast.error(
+        cause instanceof ApiError
+          ? cause.message
+          : editing
+            ? "Could not update bike."
+            : "Could not add bike.",
+      );
     } finally {
       setBusy(false);
     }
@@ -2311,14 +2474,20 @@ function AdminView() {
         <div className="page-heading ops-heading">
           <div>
             <span className="micro-label">Admin workspace · {formatDateLabel(todayIso())}</span>
-            <h1>{screen === "bikes" ? "Bike management." : "Business overview."}</h1>
+            <h1>
+              {editing
+                ? `Edit ${editing.name}.`
+                : screen === "bikes"
+                  ? "Bike management."
+                  : "Business overview."}
+            </h1>
             <p>
               {screen === "bikes"
                 ? "Fleet list first. Open the form only when you need a new bike."
                 : "Fleet status is live from GET /admin/bikes, including retired."}
             </p>
           </div>
-          {screen === "bikes" && !adding && (
+          {screen === "bikes" && !adding && !editing && (
             <button className="primary-button" type="button" onClick={() => setAdding(true)}>
               Add bike <ArrowUpRight size={15} />
             </button>
@@ -2389,22 +2558,24 @@ function AdminView() {
 
         {screen === "bikes" && (
           <>
-            {adding && (
-            <section className="admin-card">
+            {(adding || editing) && (
+            <section className="admin-card" ref={formRef}>
               <div className="card-title-row">
                 <div>
-                  <span className="micro-label">New inventory</span>
-                  <h2>Add a bike</h2>
+                  <span className="micro-label">
+                    {editing ? "Edit inventory" : "New inventory"}
+                  </span>
+                  <h2>{editing ? `Edit ${editing.name}` : "Add a bike"}</h2>
                 </div>
                 <button
                   className="ghost-action"
                   type="button"
-                  onClick={() => setAdding(false)}
+                  onClick={resetForm}
                 >
                   Cancel
                 </button>
               </div>
-              <form className="admin-bike-form" onSubmit={addBike}>
+              <form className="admin-bike-form" onSubmit={saveBike}>
                 <label className="admin-field">
                   <span>Name</span>
                   <input
@@ -2506,20 +2677,25 @@ function AdminView() {
                 </div>
                 <label className="admin-field">
                   <span>Status</span>
-                  <select
-                    className="admin-input"
-                    value={status}
-                    onChange={(event) =>
-                      setStatus(event.target.value as Exclude<BikeStatus, "rented">)
-                    }
-                  >
-                    <option value="available">Available</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="retired">Retired</option>
-                  </select>
+                  {editing?.status === "rented" ? (
+                    <input className="admin-input" value="Rented" disabled />
+                  ) : (
+                    <select
+                      className="admin-input"
+                      value={status}
+                      onChange={(event) =>
+                        setStatus(event.target.value as Exclude<BikeStatus, "rented">)
+                      }
+                    >
+                      <option value="available">Available</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="retired">Retired</option>
+                    </select>
+                  )}
                 </label>
                 <button className="primary-button" type="submit" disabled={busy}>
-                  {busy ? "Saving…" : "Save bike"} <ArrowUpRight size={15} />
+                  {busy ? "Saving…" : editing ? "Save changes" : "Save bike"}{" "}
+                  <ArrowUpRight size={15} />
                 </button>
               </form>
             </section>
@@ -2531,17 +2707,56 @@ function AdminView() {
                   <span className="micro-label">Fleet · live</span>
                   <h2>All bikes</h2>
                 </div>
-                <Pill tone="sage">{bikes?.length ?? 0}</Pill>
+                <Pill tone="sage">
+                  {query.trim()
+                    ? `${visibleBikes.length} of ${bikes?.length ?? 0}`
+                    : (bikes?.length ?? 0)}
+                </Pill>
+              </div>
+              <div className="ops-toolbar">
+                <input
+                  className="ops-search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search name, type, or status…"
+                  aria-label="Search bikes"
+                />
               </div>
               {loading && !bikes && <AsyncNote message="Loading fleet…" />}
-              {(bikes ?? []).map((bike) => (
-                <div className="table-row" key={bike.id}>
+              {!loading && bikes && visibleBikes.length === 0 && (
+                <AsyncNote
+                  message={
+                    query.trim()
+                      ? `No bikes match “${query.trim()}”.`
+                      : "No bikes in the fleet yet."
+                  }
+                />
+              )}
+              {visibleBikes.map((bike) => (
+                <div
+                  className={
+                    editing?.id === bike.id
+                      ? "table-row bike-table-row focused"
+                      : "table-row bike-table-row"
+                  }
+                  key={bike.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => startEdit(bike)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      startEdit(bike);
+                    }
+                  }}
+                >
                   <strong>{bike.name}</strong>
                   <span>{BIKE_TYPE_LABELS[bike.type]}</span>
                   <span>{formatPeso(bike.daily_rate)}</span>
                   <Pill tone={bike.status === "available" ? "sage" : "muted"}>
                     {BIKE_STATUS_LABELS[bike.status]}
                   </Pill>
+                  <span className="text-button">Edit</span>
                 </div>
               ))}
             </section>

@@ -3,6 +3,7 @@ import type {
   Bike,
   BikeCreate,
   BikeType,
+  BikeUpdate,
   Booking,
   BookingCreate,
   RateSelected,
@@ -113,6 +114,9 @@ export const api = {
 
   createAdminBike: (body: BikeCreate) =>
     request<Bike>("/admin/bikes", { method: "POST", body, auth: true }),
+
+  updateAdminBike: (id: string, body: BikeUpdate) =>
+    request<Bike>(`/admin/bikes/${id}`, { method: "PATCH", body, auth: true }),
 
   listBikes: (
     params: {

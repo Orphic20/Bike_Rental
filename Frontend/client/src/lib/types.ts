@@ -110,6 +110,15 @@ export interface BikeCreate {
   status?: Exclude<BikeStatus, "rented">;
 }
 
+export interface BikeUpdate {
+  name?: string;
+  type?: BikeType;
+  daily_rate?: string;
+  weekly_rate?: string | null;
+  image_url?: string | null;
+  status?: Exclude<BikeStatus, "rented">;
+}
+
 export const BIKE_TYPE_LABELS: Record<BikeType, string> = {
   japanese: "Japanese bike",
   folding: "Folding bike",

@@ -1,14 +1,25 @@
 """Bike inventory management, shop open/closed toggle, audit log."""
 
+import uuid
+
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import func
 from sqlmodel import select
 
 from bike_rental.auth import AdminUser
 from bike_rental.database import SessionDep
-from bike_rental.models import Bike, BikeRead, BikeStatus, BikeCreate, BikeUpdate
+from bike_rental.models import (
+    Bike,
+    BikeCreate,
+    BikeRead,
+    BikeStatus,
+    BikeUpdate,
+    Rental,
+    RentalStatus,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
 
 def _to_bike_read(bike: Bike) -> BikeRead:
     return BikeRead(
@@ -22,6 +33,7 @@ def _to_bike_read(bike: Bike) -> BikeRead:
         available=(bike.status == BikeStatus.available),
     )
 
+
 @router.get("/bikes", response_model=list[BikeRead])
 def list_admin_bikes(
     user: AdminUser,
@@ -29,6 +41,7 @@ def list_admin_bikes(
 ) -> list[BikeRead]:
     bikes = session.exec(select(Bike).order_by(Bike.name)).all()
     return [_to_bike_read(bike) for bike in bikes]
+
 
 @router.post("/bikes", response_model=BikeRead)
 def create_bike(
@@ -54,6 +67,45 @@ def create_bike(
         image_url=body.image_url,
         status=body.status,
     )
+    session.add(bike)
+    session.commit()
+    session.refresh(bike)
+    return _to_bike_read(bike)
+
+
+@router.patch("/bikes/{bike_id}", response_model=BikeRead)
+def update_bike(
+    bike_id: uuid.UUID,
+    body: BikeUpdate,
+    user: AdminUser,
+    session: SessionDep,
+) -> BikeRead:
+    bike = session.get(Bike, bike_id)
+    if bike is None:
+        raise HTTPException(status_code=404, detail="Bike not found")
+
+
+    data = body.model_dump(exclude_unset=True)
+    if "name" in data:
+        name = (data["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        taken = session.exec(
+            select(Bike).where(
+                func.lower(Bike.name) == name.lower(),
+                Bike.id != bike.id,
+            )
+        ).first()
+        if taken:
+            raise HTTPException(
+                status_code=409,
+                detail="A bike with this name already exists",
+            )
+        data["name"] = name
+
+
+    for key, value in data.items():
+        setattr(bike, key, value)
     session.add(bike)
     session.commit()
     session.refresh(bike)
