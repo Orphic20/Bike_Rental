@@ -75,6 +75,16 @@ import { toast } from "sonner";
 
 type View = "landing" | "selection" | "customer" | "staff" | "admin";
 
+type AppHistoryState = {
+  view: View;
+  stylePage: BikeType | null;
+  customerScreen: string;
+};
+
+function appHistoryKey(state: AppHistoryState) {
+  return `${state.view}:${state.stylePage ?? ""}:${state.customerScreen}`;
+}
+
 const BIKE_TYPES: BikeType[] = ["japanese", "folding", "mountain"];
 
 const TYPE_COPY: Record<BikeType, { tint: string; tagline: string; blurb: string; photo: string }> = {
@@ -2784,7 +2794,11 @@ function AdminView() {
                 <div className="admin-field admin-field-wide">
                   <span>Photo</span>
                   <label
-                    className={imageUrl ? "upload-proof uploaded" : "upload-proof"}
+                    className={
+                      imageUrl
+                        ? "admin-photo-picker has-photo"
+                        : "admin-photo-picker"
+                    }
                   >
                     <input
                       type="file"
@@ -2825,15 +2839,17 @@ function AdminView() {
                           .finally(() => setUploadingPhoto(false));
                       }}
                     />
-                    <span>
+                    {imageUrl ? (
+                      <img className="admin-photo-thumb" src={imageUrl} alt="" />
+                    ) : null}
+                    <span className="admin-photo-hint">
                       {uploadingPhoto
                         ? "Uploading…"
-                        : photoName || (imageUrl ? "Photo uploaded" : "Choose a photo")}
+                        : imageUrl
+                          ? photoName || "Tap photo to replace"
+                          : "Tap to add a photo"}
                     </span>
                   </label>
-                  {imageUrl && (
-                    <img className="admin-photo-thumb" src={imageUrl} alt="" />
-                  )}
                 </div>
                 <label className="admin-field">
                   <span>Status</span>
@@ -3037,6 +3053,31 @@ export default function Home() {
   const [rate, setRate] = useState<RateSelected>("daily");
   const [authOpen, setAuthOpen] = useState(false);
   const [customerScreen, setCustomerScreen] = useState("booking");
+  const skipHistoryPush = useRef(true);
+
+  useEffect(() => {
+    const snapshot: AppHistoryState = { view, stylePage, customerScreen };
+    if (skipHistoryPush.current) {
+      skipHistoryPush.current = false;
+      window.history.replaceState(snapshot, "", window.location.pathname);
+      return;
+    }
+    const current = window.history.state as AppHistoryState | null;
+    if (current && appHistoryKey(current) === appHistoryKey(snapshot)) return;
+    window.history.pushState(snapshot, "", window.location.pathname);
+  }, [view, stylePage, customerScreen]);
+
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const next = event.state as AppHistoryState | null;
+      skipHistoryPush.current = true;
+      setView(next?.view ?? "landing");
+      setStylePage(next?.stylePage ?? null);
+      setCustomerScreen(next?.customerScreen ?? "booking");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const goToBooking = (screen: string) => {
     if (!session) {
