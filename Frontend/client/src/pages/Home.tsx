@@ -646,6 +646,9 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           <a className="quiet-link" href="/privacy-policy/">
             Privacy policy
           </a>
+          <a className="quiet-link" href="/terms/">
+            Terms
+          </a>
         </div>
         <CLSULocationMap />
       </section>
