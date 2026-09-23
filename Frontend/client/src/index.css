@@ -743,6 +743,11 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 /* Coastal Utility Atelier landing layer: make the first impression feel editorial, local, and easy to act on. */
 .header-demo-link { border: 0; border-bottom: 1px solid #c84c3d; background: transparent; color: #9a5045; padding: 6px 0; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
 .header-demo-link:hover { color: #223633; }
+.privacy-page { max-width: 680px; margin: 0 auto; padding: 48px 7vw 80px; }
+.privacy-page h1 { color: #263b38; font-family: "Fraunces", Georgia, serif; font-size: clamp(36px, 6vw, 56px); letter-spacing: -.05em; line-height: .95; margin: 12px 0 18px; }
+.privacy-page h2 { color: #263b38; font-family: "Fraunces", Georgia, serif; font-size: 22px; margin: 32px 0 10px; }
+.privacy-page p, .privacy-page li { color: #5d6b63; font-size: 15px; line-height: 1.65; }
+.privacy-page a { color: #c84c3d; }
 .landing-page { background: #f7f4ed; }
 .landing-hero { max-width: 1600px; margin: 0 auto; padding: 72px 7vw 84px; display: grid; grid-template-columns: .92fr 1.08fr; gap: clamp(50px, 8vw, 130px); align-items: center; }
 .landing-hero-copy { padding-bottom: 6px; }
