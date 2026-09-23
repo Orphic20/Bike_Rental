@@ -880,13 +880,17 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .selection-topline { display: flex; align-items: center; justify-content: space-between; color: #859188; border-top: 1px solid #d6d9cf; border-bottom: 1px solid #d6d9cf; padding: 13px 0; text-transform: uppercase; letter-spacing: .13em; font-size: 9px; }
 .selection-topline span:first-child { color: #a36d5b; font-weight: 800; }
 .selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin-top: 24px; }
-.selection-card { padding: 0; border: 1px solid #dcdfd6; background: #fbf9f3; text-align: left; min-width: 0; width: 100%; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .22s cubic-bezier(.23,1,.32,1), border-color .2s ease, box-shadow .2s ease; }
-.selection-card:hover { transform: translateY(-4px); border-color: #b3c2af; box-shadow: 0 15px 25px rgba(52,75,61,.08); }
+.selection-card { padding: 0; border: 1px solid #dcdfd6; background: #fbf9f3; text-align: left; min-width: 0; width: 100%; font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: rgba(200,76,61,.18); transition: transform .22s cubic-bezier(.23,1,.32,1), border-color .2s ease, box-shadow .2s ease; }
+@media (hover: hover) {
+  .selection-card:hover { transform: translateY(-4px); border-color: #b3c2af; box-shadow: 0 15px 25px rgba(52,75,61,.08); }
+}
 .selection-card.selected { border-color: #c84c3d; box-shadow: 0 16px 28px rgba(117,69,54,.1); }
 .selection-card-image { height: 210px; position: relative; overflow: hidden; }
 .selection-sage .selection-card-image { background: #dce7d5; }.selection-clay .selection-card-image { background: #ecd9d0; }.selection-forest .selection-card-image { background: #d6e0d9; }
 .selection-card-image img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; transition: transform .5s cubic-bezier(.23,1,.32,1); }
-.selection-card:hover .selection-card-image img { transform: scale(1.05); }
+@media (hover: hover) {
+  .selection-card:hover .selection-card-image img { transform: scale(1.05); }
+}
 .selection-card.selected .selection-card-image img { transform: scale(1.035); }
 .selection-number { position: absolute; left: 13px; top: 11px; color: #516a5a; font-family: "Fraunces", Georgia, serif; font-size: 17px; font-style: italic; }
 .selection-card-copy { padding: 19px 17px 17px; }
@@ -908,7 +912,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .style-switch:hover { transform: translateY(-2px); border-color: #b4c5b3; }.style-switch.active { background: #e5eee0; border-color: #819d83; color: #3f6353; }
 .selection-cart-brief { border-top: 1px solid #d6d9cf; margin-top: 45px; padding-top: 17px; display: flex; flex-direction: column; gap: 5px; }.selection-cart-brief strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 22px; letter-spacing: -.045em; }.selection-cart-brief span:last-child { color: #8b968e; font-size: 10px; }
 .inventory-grid { margin-top: 0; }.inventory-grid .selection-card { display: flex; flex-direction: column; }.inventory-grid .selection-card-image { display: block; width: 100%; border: 0; padding: 0; cursor: pointer; }.inventory-grid .selection-card-copy > div { align-items: center; flex-wrap: wrap; }.cart-action { margin-left: auto; border: 1px solid #c9d0c6; background: transparent; color: #486258; padding: 6px 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 800; transition: background .18s ease, color .18s ease, border-color .18s ease; }.cart-action:hover { background: #304a41; color: #fffdf6; border-color: #304a41; }.cart-action.added { background: #dfeada; border-color: #a4baa0; color: #41624f; }.inventory-grid .selection-card-copy p { min-height: 28px; }.inventory-grid .selection-card-copy h2 { font-size: 23px; }
-@media (max-width: 650px) { .style-switcher { gap: 6px; }.style-switch { padding: 10px 8px; }.style-switch span { font-size: 13px; }.style-switch small { font-size: 8px; }.selection-cart-brief { margin-top: 30px; }.inventory-grid .selection-card { display: grid; grid-template-columns: 45% 55%; }.inventory-grid .selection-card-image { min-height: 205px; }.inventory-grid .selection-card-copy { padding: 18px 16px; }.cart-action { margin-left: 0; margin-top: 8px; } }
+@media (max-width: 650px) { .style-switcher { gap: 6px; }.style-switch { padding: 10px 8px; }.style-switch span { font-size: 13px; }.style-switch small { font-size: 8px; }.selection-cart-brief { margin-top: 30px; }.inventory-grid { padding-bottom: 88px; }.inventory-grid .selection-card { display: grid; grid-template-columns: 45% 55%; min-height: 168px; }.inventory-grid .selection-card-image { min-height: 168px; }.inventory-grid .selection-card-copy { padding: 16px 14px; }.cart-action { margin-left: 0; margin-top: 8px; } }
 
 /* Coastal Utility Atelier page flow: style choice is a composed first page; inventory is a focused second page. */
 .style-page { min-height: calc(100vh - 106px); max-width: 1420px; margin: 0 auto; padding: 82px 7vw 50px; }
@@ -1032,7 +1036,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .sign-in-button:hover { background: #c84c3d; color: #fffaf2; transform: translateY(-2px); }
 
 /* Bike artwork: generated in-page so the fleet renders without external image hosting. */
-.bike-art { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(150deg, #eef0e5 0%, #dfe6d9 100%); }
+.bike-art { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; pointer-events: none; background: linear-gradient(150deg, #eef0e5 0%, #dfe6d9 100%); }
 .bike-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .bike-art.tone-japanese { background: linear-gradient(150deg, #e9efe2 0%, #cfdcc9 100%); }
 .bike-art.tone-folding { background: linear-gradient(150deg, #f6ebe4 0%, #e6cec3 100%); }
