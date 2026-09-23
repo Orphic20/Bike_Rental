@@ -643,7 +643,7 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           <button className="primary-button" onClick={() => onBook()}>
             Book a bike <ArrowUpRight size={14} />
           </button>
-          <a className="quiet-link" href="/privacy-policy">
+          <a className="quiet-link" href="/privacy-policy/">
             Privacy policy
           </a>
         </div>
