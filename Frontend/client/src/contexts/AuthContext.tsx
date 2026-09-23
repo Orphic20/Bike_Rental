@@ -70,38 +70,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // The profile lives in our database, created by the on_auth_user_created
   // trigger, so it is fetched separately from the Supabase session.
+  // Key off the token, not the session object — mobile OAuth fires
+  // SIGNED_IN then TOKEN_REFRESHED and was aborting /users/me.
+  const accessToken = session?.access_token;
   useEffect(() => {
-    if (!session) return;
+    if (!accessToken) return;
 
     const controller = new AbortController();
     let cancelled = false;
 
     setLoading(true);
-    api
-      .me(controller.signal)
-      .then((user) => {
-        if (cancelled) return;
-        setProfile(user);
-        setError(null);
-      })
-      .catch((cause) => {
-        if (cancelled || controller.signal.aborted) return;
-        setProfile(null);
-        setError(
-          cause instanceof ApiError
-            ? cause.message
-            : "Could not load your profile.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    const load = async () => {
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const user = await api.me(controller.signal);
+          if (cancelled) return;
+          setProfile(user);
+          setError(null);
+          return;
+        } catch (cause) {
+          if (cancelled || controller.signal.aborted) return;
+          lastError = cause;
+          await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+        }
+      }
+      if (cancelled) return;
+      setProfile(null);
+      setError(
+        lastError instanceof ApiError
+          ? lastError.message
+          : "Could not load your profile.",
+      );
+    };
+
+    void load().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [session]);
+  }, [accessToken]);
 
   const refreshProfile = useCallback(async () => {
     if (!session) return;

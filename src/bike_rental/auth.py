@@ -4,6 +4,7 @@ import uuid
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from typing import Annotated
 
@@ -56,18 +57,29 @@ def get_current_user(
         if customer is None:
             raise HTTPException(status_code=500, detail="Customer role is missing")
         meta = payload.get("user_metadata") or {}
-        email = payload.get("email") or ""
-        name = meta.get("full_name") or meta.get("name") or email.split("@")[0] or "Rider"
+        email = (
+            payload.get("email")
+            or meta.get("email")
+            or f"{sub}@users.noreply.munoz-bike-rental.local"
+        )
+        name = meta.get("full_name") or meta.get("name") or str(email).split("@")[0] or "Rider"
         user = User(
             id=uuid.UUID(sub),
-            email=email,
-            google_id=meta.get("sub") or meta.get("provider_id"),
+            email=str(email),
+            google_id=meta.get("sub") or meta.get("provider_id") or meta.get("iss"),
             name=str(name),
             role_id=customer.id,
         )
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = session.exec(select(User).where(User.id == uuid.UUID(sub))).first()
+            if user is None:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+        else:
+            session.refresh(user)
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")

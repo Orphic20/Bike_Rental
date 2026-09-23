@@ -182,7 +182,7 @@ function AppHeader({
   setView: (view: View) => void;
   onRequestSignIn: () => void;
 }) {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, loading: authLoading, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [shopNotice, setShopNotice] = useState<ShopSettings | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -336,6 +336,10 @@ function AppHeader({
                 <span className="avatar">{initials || "MB"}</span>
               </button>
             </>
+          ) : session && authLoading ? (
+            <span className="sign-in-button" aria-live="polite">
+              Signing in…
+            </span>
           ) : (
             <button className="sign-in-button" onClick={onRequestSignIn}>
               <UserRound size={15} /> Sign in
