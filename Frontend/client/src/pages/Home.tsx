@@ -560,7 +560,11 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
                 );
               })}
             </div>
-            <div className="landing-feature-bike">
+            <button
+              type="button"
+              className="landing-feature-bike"
+              onClick={() => onBook(activeType)}
+            >
               <img
                 src={TYPE_COPY[activeType].photo}
                 alt={BIKE_TYPE_LABELS[activeType]}
@@ -576,11 +580,11 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
                       : "None in the fleet yet"}
                   </span>
                 )}
-                <button className="primary-button" onClick={() => onBook(activeType)}>
+                <span className="primary-button">
                   Reserve a bike <ArrowUpRight size={14} />
-                </button>
+                </span>
               </div>
-            </div>
+            </button>
           </div>
         )}
       </section>
@@ -1007,11 +1011,17 @@ function SelectionView({
                 const selected = isInCart(bike.id);
                 const blocked = !bike.available;
                 return (
-                  <article
+                  <button
+                    type="button"
                     key={bike.id}
                     className={`selection-card ${TYPE_COPY[bike.type].tint} ${
                       selected ? "selected" : ""
                     } ${blocked ? "is-unavailable" : ""}`}
+                    disabled={blocked}
+                    onClick={() => {
+                      if (selected) removeFromBooking(bike);
+                      else addToBooking(bike);
+                    }}
                   >
                     <div className="selection-card-image">
                       <BikeArt type={bike.type} imageUrl={bike.image_url} alt={bike.name} />
@@ -1040,13 +1050,7 @@ function SelectionView({
                       <div>
                         <strong>{formatPeso(rateFor(bike, rate))}</strong>
                         <small> / {rate === "weekly" ? "week" : "day"}</small>
-                        <button
-                          className={selected ? "cart-action added" : "cart-action"}
-                          disabled={blocked}
-                          onClick={() =>
-                            selected ? removeFromBooking(bike) : addToBooking(bike)
-                          }
-                        >
+                        <span className={selected ? "cart-action added" : "cart-action"}>
                           {selected ? (
                             <>
                               <Check size={14} /> Added
@@ -1056,10 +1060,10 @@ function SelectionView({
                           ) : (
                             "+ Add to Group Booking"
                           )}
-                        </button>
+                        </span>
                       </div>
                     </div>
-                  </article>
+                  </button>
                 );
               })}
             </div>

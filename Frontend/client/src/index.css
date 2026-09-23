@@ -799,7 +799,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .landing-bike-price small { color: #839087; text-transform: none; letter-spacing: 0; font-size: 9px; font-weight: 500; }
 .landing-bike-tab > svg { color: #c84c3d; transition: transform .2s ease; }
 .landing-bike-tab:hover > svg, .landing-bike-tab.active > svg { transform: translate(3px, -3px); }
-.landing-feature-bike { display: grid; grid-template-columns: 1.08fr .92fr; min-height: 315px; background: #e0e9d7; }
+.landing-feature-bike { display: grid; grid-template-columns: 1.08fr .92fr; min-height: 315px; width: 100%; border: 0; padding: 0; background: #e0e9d7; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .landing-feature-bike > img { width: 100%; height: 100%; min-height: 315px; object-fit: cover; }
 .landing-feature-copy { padding: 37px 32px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
 .landing-feature-copy h3 { color: #2f4a40; font-family: "Fraunces", Georgia, serif; font-size: 37px; font-weight: 600; letter-spacing: -.07em; margin: 7px 0 11px; }
@@ -880,7 +880,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .selection-topline { display: flex; align-items: center; justify-content: space-between; color: #859188; border-top: 1px solid #d6d9cf; border-bottom: 1px solid #d6d9cf; padding: 13px 0; text-transform: uppercase; letter-spacing: .13em; font-size: 9px; }
 .selection-topline span:first-child { color: #a36d5b; font-weight: 800; }
 .selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin-top: 24px; }
-.selection-card { padding: 0; border: 1px solid #dcdfd6; background: #fbf9f3; text-align: left; min-width: 0; transition: transform .22s cubic-bezier(.23,1,.32,1), border-color .2s ease, box-shadow .2s ease; }
+.selection-card { padding: 0; border: 1px solid #dcdfd6; background: #fbf9f3; text-align: left; min-width: 0; width: 100%; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .22s cubic-bezier(.23,1,.32,1), border-color .2s ease, box-shadow .2s ease; }
 .selection-card:hover { transform: translateY(-4px); border-color: #b3c2af; box-shadow: 0 15px 25px rgba(52,75,61,.08); }
 .selection-card.selected { border-color: #c84c3d; box-shadow: 0 16px 28px rgba(117,69,54,.1); }
 .selection-card-image { height: 210px; position: relative; overflow: hidden; }
@@ -1048,6 +1048,6 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .catalog-skeleton { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .catalog-skeleton > span { display: block; height: 320px; background: linear-gradient(100deg, #f0eee5 30%, #f8f6ef 50%, #f0eee5 70%); background-size: 220% 100%; animation: catalog-shimmer 1.3s ease-in-out infinite; }
 @keyframes catalog-shimmer { from { background-position: 180% 0; } to { background-position: -40% 0; } }
-.selection-card.is-unavailable { opacity: .55; }
+.selection-card.is-unavailable { opacity: .55; cursor: default; }
 .selection-card.is-unavailable .cart-action { color: #929c94; text-decoration: line-through; cursor: not-allowed; }
 .unavailable-chip { position: absolute; top: 12px; left: 12px; z-index: 2; padding: 6px 9px; border-radius: 100px; background: rgba(27,52,47,.82); color: #f4efe6; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
