@@ -12,6 +12,7 @@ import type {
   Rental,
   StaffBooking,
   User,
+  UserUpdate,
 } from "@/lib/types";
 
 const BASE_URL = (
@@ -125,6 +126,12 @@ export const api = {
 
   updateShopSettings: (body: ShopUpdate) =>
     request<ShopSettings>("/admin/shop/settings", { method: "PUT", body, auth: true }),
+
+  listAdminUsers: (signal?: AbortSignal) =>
+    request<User[]>("/admin/users", { auth: true, signal }),
+
+  updateAdminUser: (id: string, body: UserUpdate) =>
+    request<User>(`/admin/users/${id}`, { method: "PATCH", body, auth: true }),
 
   listBikes: (
     params: {

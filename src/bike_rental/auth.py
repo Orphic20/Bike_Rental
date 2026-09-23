@@ -45,9 +45,29 @@ def get_current_user(
 
     sub = payload["sub"]
     user = session.exec(select(User).where(User.id == uuid.UUID(sub))).first()
-    
+
     if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        # Email signup is covered by on_auth_user_created. Google often lands
+        # here first with a valid JWT and no public.users row, so /users/me
+        # used to 401 and the header looked signed out.
+        customer = session.exec(
+            select(Role).where(Role.name == RoleName.customer)
+        ).first()
+        if customer is None:
+            raise HTTPException(status_code=500, detail="Customer role is missing")
+        meta = payload.get("user_metadata") or {}
+        email = payload.get("email") or ""
+        name = meta.get("full_name") or meta.get("name") or email.split("@")[0] or "Rider"
+        user = User(
+            id=uuid.UUID(sub),
+            email=email,
+            google_id=meta.get("sub") or meta.get("provider_id"),
+            name=str(name),
+            role_id=customer.id,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")

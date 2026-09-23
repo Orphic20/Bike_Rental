@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
-import type { Bike, Booking, RateSelected, StaffBooking } from "@/lib/types";
+import type { Bike, Booking, RateSelected, StaffBooking, User } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 
 interface Resource<T> {
@@ -163,6 +163,47 @@ export function useAdminBikes(): Resource<Bike[]> {
       .listAdminBikes(controller.signal)
       .then((bikes) => {
         setData(bikes);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+/** Every account, including suspended. Admin token only. */
+export function useAdminUsers(): Resource<User[]> {
+  const { session } = useAuth();
+  const [data, setData] = useState<User[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+
+    api
+      .listAdminUsers(controller.signal)
+      .then((users) => {
+        setData(users);
         setError(null);
       })
       .catch((cause) => {

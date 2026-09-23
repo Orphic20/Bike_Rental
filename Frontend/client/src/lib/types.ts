@@ -130,6 +130,11 @@ export interface ShopUpdate {
   reason?: string | null;
 }
 
+export interface UserUpdate {
+  role?: RoleName;
+  is_active?: boolean;
+}
+
 export const BIKE_TYPE_LABELS: Record<BikeType, string> = {
   japanese: "Japanese bike",
   folding: "Folding bike",
@@ -159,4 +164,10 @@ export const RENTAL_STATUS_LABELS: Record<RentalStatus, string> = {
   returned: "Returned",
   cancelled: "Cancelled",
   no_show: "No show",
+};
+
+export const ROLE_LABELS: Record<RoleName, string> = {
+  customer: "Customer",
+  staff: "Staff",
+  admin: "Admin",
 };

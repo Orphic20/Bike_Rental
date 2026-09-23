@@ -455,3 +455,8 @@ class ShopUpdate(SQLModel):
     is_open: bool
     reason: Optional[str] = None
 
+
+class AdminUserUpdate(SQLModel):
+    role: Optional[RoleName] = None
+    is_active: Optional[bool] = None
+

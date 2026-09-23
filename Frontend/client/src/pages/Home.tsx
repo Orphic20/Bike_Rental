@@ -15,7 +15,7 @@ import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { MapView } from "@/components/Map";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminBikes, useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
+import { useAdminBikes, useAdminUsers, useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { CLSU_POSITION, WAIVER_VERSION } from "@/lib/constants";
 import {
@@ -30,14 +30,17 @@ import {
   BIKE_TYPE_LABELS,
   PAYMENT_STATUS_LABELS,
   RENTAL_STATUS_LABELS,
+  ROLE_LABELS,
   type Bike,
   type BikeStatus,
   type BikeType,
   type Booking,
   type PaymentMethod,
   type RateSelected,
+  type RoleName,
   type ShopSettings,
   type StaffBooking,
+  type User,
 } from "@/lib/types";
 import {
   AlertTriangle,
@@ -640,6 +643,9 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           <button className="primary-button" onClick={() => onBook()}>
             Book a bike <ArrowUpRight size={14} />
           </button>
+          <a className="quiet-link" href="/privacy">
+            Privacy policy
+          </a>
         </div>
         <CLSULocationMap />
       </section>
@@ -2352,9 +2358,17 @@ function StaffView() {
 }
 
 function AdminView() {
+  const { profile } = useAuth();
   const fleet = useAdminBikes();
+  const accounts = useAdminUsers();
   const { data: bikes, loading, error, reload } = fleet;
-  const [screen, setScreen] = useState<"overview" | "bikes">("bikes");
+  const {
+    data: users,
+    loading: usersLoading,
+    error: usersError,
+    reload: reloadUsers,
+  } = accounts;
+  const [screen, setScreen] = useState<"overview" | "bikes" | "users">("bikes");
   const [name, setName] = useState("");
   const [type, setType] = useState<BikeType>("japanese");
   const [dailyRate, setDailyRate] = useState("");
@@ -2370,6 +2384,8 @@ function AdminView() {
   const [shop, setShop] = useState<ShopSettings | null>(null);
   const [closeReason, setCloseReason] = useState("");
   const [shopBusy, setShopBusy] = useState(false);
+  const [userQuery, setUserQuery] = useState("");
+  const [userBusyId, setUserBusyId] = useState<string | null>(null);
   const formRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -2460,6 +2476,33 @@ function AdminView() {
     });
   }, [bikes, query]);
 
+  const visibleUsers = useMemo(() => {
+    const rows = users ?? [];
+    const needle = userQuery.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((account) => {
+      const haystack = [account.name, account.email, account.role, ROLE_LABELS[account.role]]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [users, userQuery]);
+
+  const patchUser = async (account: User, body: { role?: RoleName; is_active?: boolean }, label: string) => {
+    setUserBusyId(account.id);
+    try {
+      await api.updateAdminUser(account.id, body);
+      toast.success(label);
+      reloadUsers();
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not update the user.",
+      );
+    } finally {
+      setUserBusyId(null);
+    }
+  };
+
   const saveBike = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -2528,13 +2571,9 @@ function AdminView() {
           <BikeIcon size={17} /> Bike management
         </button>
         <button
-          className="sidebar-link"
+          className={screen === "users" ? "sidebar-link active" : "sidebar-link"}
           type="button"
-          onClick={() =>
-            toast("User management is not available yet", {
-              description: "Phase 4 user endpoints are still being built.",
-            })
-          }
+          onClick={() => setScreen("users")}
         >
           <Users size={17} /> User management
         </button>
@@ -2585,12 +2624,16 @@ function AdminView() {
                 ? `Edit ${editing.name}.`
                 : screen === "bikes"
                   ? "Bike management."
-                  : "Business overview."}
+                  : screen === "users"
+                    ? "User management."
+                    : "Business overview."}
             </h1>
             <p>
               {screen === "bikes"
                 ? "Fleet list first. Open the form only when you need a new bike."
-                : "Fleet status is live from GET /admin/bikes, including retired."}
+                : screen === "users"
+                  ? "Promote staff, restore access, or suspend an account. You cannot demote the last admin."
+                  : "Fleet status is live from GET /admin/bikes, including retired."}
             </p>
           </div>
           {screen === "bikes" && !adding && !editing && (
@@ -2600,7 +2643,11 @@ function AdminView() {
           )}
         </div>
 
-        {error && <AsyncNote tone="error" message={error} onRetry={reload} />}
+        {screen === "users"
+          ? usersError && (
+              <AsyncNote tone="error" message={usersError} onRetry={reloadUsers} />
+            )
+          : error && <AsyncNote tone="error" message={error} onRetry={reload} />}
 
         {screen === "overview" && !error && (
           <>
@@ -2867,6 +2914,103 @@ function AdminView() {
               ))}
             </section>
           </>
+        )}
+
+        {screen === "users" && (
+          <section className="admin-card">
+            <div className="card-title-row">
+              <div>
+                <span className="micro-label">Accounts · live</span>
+                <h2>All users</h2>
+              </div>
+              <Pill tone="sage">
+                {userQuery.trim()
+                  ? `${visibleUsers.length} of ${users?.length ?? 0}`
+                  : (users?.length ?? 0)}
+              </Pill>
+            </div>
+            <div className="ops-toolbar">
+              <input
+                className="ops-search"
+                value={userQuery}
+                onChange={(event) => setUserQuery(event.target.value)}
+                placeholder="Search name, email, or role…"
+                aria-label="Search users"
+              />
+            </div>
+            {usersLoading && !users && <AsyncNote message="Loading users…" />}
+            {!usersLoading && users && visibleUsers.length === 0 && (
+              <AsyncNote
+                message={
+                  userQuery.trim()
+                    ? `No users match “${userQuery.trim()}”.`
+                    : "No users yet."
+                }
+              />
+            )}
+            <div className="user-list">
+              {visibleUsers.map((account) => {
+                const mine = account.id === profile?.id;
+                const initials = account.name
+                  .split(/\s+/)
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((part) => part[0]?.toUpperCase())
+                  .join("");
+                return (
+                  <div
+                    className={account.is_active ? "user-row" : "user-row is-inactive"}
+                    key={account.id}
+                  >
+                    <span className="avatar">{initials || "MB"}</span>
+                    <div>
+                      <strong>
+                        {account.name}
+                        {mine ? " (you)" : ""}
+                      </strong>
+                      <span>{account.email}</span>
+                    </div>
+                    <select
+                      className="admin-input"
+                      value={account.role}
+                      disabled={mine || userBusyId === account.id}
+                      aria-label={`Role for ${account.name}`}
+                      onChange={(event) => {
+                        const role = event.target.value as RoleName;
+                        void patchUser(
+                          account,
+                          { role },
+                          `${account.name} is now ${ROLE_LABELS[role].toLowerCase()}`,
+                        );
+                      }}
+                    >
+                      {(Object.keys(ROLE_LABELS) as RoleName[]).map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={mine || userBusyId === account.id}
+                      onClick={() =>
+                        void patchUser(
+                          account,
+                          { is_active: !account.is_active },
+                          account.is_active
+                            ? `${account.name} suspended`
+                            : `${account.name} restored`,
+                        )
+                      }
+                    >
+                      {account.is_active ? "Suspend" : "Restore"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
       </main>
     </div>
