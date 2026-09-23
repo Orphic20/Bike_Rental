@@ -4,9 +4,10 @@ import os
 
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from bike_rental.auth import AdminUser, CurrentUser
+from bike_rental.rate_limit import limit_uploads
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -40,6 +41,7 @@ def _upload_image(file: UploadFile, *, folder: str, label: str) -> dict[str, str
 def upload_receipt(
     file: UploadFile,
     _user: CurrentUser,
+    _: None = Depends(limit_uploads),
 ) -> dict[str, str]:
     return _upload_image(file, folder="munoz/receipts", label="Receipt")
 

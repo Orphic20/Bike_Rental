@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 
 from bike_rental.auth import CurrentUser
+from bike_rental.rate_limit import limit_bookings
 from bike_rental.availability import (
     BLOCKING_STATUSES,
     existing_window,
@@ -68,6 +69,7 @@ def create_booking(
     body: BookingCreate,
     user: CurrentUser,
     session: SessionDep,
+    _: None = Depends(limit_bookings),
 ) -> BookingRead:
     bike_ids = [item.bike_id for item in body.bikes]
     if not bike_ids:
@@ -223,6 +225,7 @@ def cancel_booking(
     booking_id: uuid.UUID,
     user: CurrentUser,
     session: SessionDep,
+    _: None = Depends(limit_bookings),
 ) -> BookingRead:
     booking = session.get(Booking, booking_id)
     if booking is None or booking.user_id != user.id:
