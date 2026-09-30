@@ -13,11 +13,10 @@ import lingapRouteCard from "@/assets/lingap_routecard.jpg";
 import mountainBike from "@/assets/mountain-bike.png";
 import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
-import { MapView } from "@/components/Map";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminBikes, useAdminUsers, useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
-import { CLSU_POSITION, WAIVER_VERSION } from "@/lib/constants";
+import { SHOP_ADDRESS, SHOP_MAPS_EMBED_URL, SHOP_MAPS_URL, WAIVER_VERSION } from "@/lib/constants";
 import {
   formatDateLabel,
   formatDateTimeLabel,
@@ -653,7 +652,7 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
         </div>
         <div className="landing-visit-meta">
           <span>
-            <MapPin size={16} /> Bagong Sikat Science City of Muñoz
+            <MapPin size={16} /> {SHOP_ADDRESS}
           </span>
           <span>
             <Clock3 size={16} /> Every day · 8am—7pm
@@ -661,6 +660,14 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           <button className="primary-button" onClick={() => onBook()}>
             Book a bike <ArrowUpRight size={14} />
           </button>
+          <a
+            className="quiet-link"
+            href={SHOP_MAPS_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Google Maps <ArrowUpRight size={14} />
+          </a>
           <a className="quiet-link" href="/privacy-policy/">
             Privacy policy
           </a>
@@ -675,65 +682,32 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
 }
 
 function CLSULocationMap() {
-  const [pinOpen, setPinOpen] = useState(true);
-  const [mapReady, setMapReady] = useState(false);
-
   return (
     <div className="clsu-map-shell">
-      <MapView
+      <iframe
         className="clsu-map"
-        initialCenter={CLSU_POSITION}
-        initialZoom={15}
-        onMapReady={(map) => {
-          setMapReady(true);
-          const marker = new window.google!.maps.marker.AdvancedMarkerElement({
-            map,
-            position: CLSU_POSITION,
-            title: "Muñoz Bike Rental near CLSU",
-          });
-          marker.addListener("click", () => setPinOpen(true));
-        }}
+        src={SHOP_MAPS_EMBED_URL}
+        title={`Google Maps location for ${SHOP_ADDRESS}`}
+        loading="lazy"
+        allowFullScreen
+        referrerPolicy="no-referrer-when-downgrade"
       />
-      <div
-        className={mapReady ? "clsu-map-fallback is-hidden" : "clsu-map-fallback"}
-        aria-label="Illustrated map showing the CLSU location"
+      <a
+        className="clsu-map-pin-card"
+        href={SHOP_MAPS_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Open Muñoz Bike Rental in Google Maps"
       >
-        <span className="fallback-road road-one" />
-        <span className="fallback-road road-two" />
-        <span className="fallback-road road-three" />
-        <span className="fallback-campus">CLSU</span>
-        <button
-          className="clsu-fallback-pin"
-          onClick={() => setPinOpen(true)}
-          aria-label="Show Muñoz Bike Rental near CLSU"
-        >
-          <MapPin size={20} fill="currentColor" />
-        </button>
-      </div>
-      {pinOpen ? (
-        <button
-          className="clsu-map-pin-card"
-          onClick={() => setPinOpen(false)}
-          aria-label="Close CLSU location card"
-        >
-          <span className="clsu-pin-mark">
-            <MapPin size={15} fill="currentColor" />
-          </span>
-          <span>
-            <strong>Muñoz Bike Rental near CLSU</strong>
-            <small>Bagong Sikat · Science City of Muñoz</small>
-          </span>
-          <X size={14} />
-        </button>
-      ) : (
-        <button
-          className="clsu-reopen-pin"
-          onClick={() => setPinOpen(true)}
-          aria-label="Show CLSU location details"
-        >
-          <MapPin size={15} /> Show location
-        </button>
-      )}
+        <span className="clsu-pin-mark">
+          <MapPin size={15} fill="currentColor" />
+        </span>
+        <span>
+          <strong>Muñoz Bike Rental</strong>
+          <small>{SHOP_ADDRESS}</small>
+        </span>
+        <ArrowUpRight size={14} />
+      </a>
     </div>
   );
 }
