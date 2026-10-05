@@ -48,6 +48,7 @@ import {
   type PaymentMethod,
   type RateSelected,
   type RoleName,
+  type ShopClosure,
   type ShopClosureCreate,
   type ShopSettings,
   type StaffBooking,
@@ -190,6 +191,92 @@ function AsyncNote({
   );
 }
 
+function isHoursOverrideActive(shop: ShopSettings | null, now = Date.now()): boolean {
+  if (!shop?.schedule_override_until) return false;
+  return Date.parse(shop.schedule_override_until) > now;
+}
+
+function pickCurrentClosure(rows: ShopClosure[], now: number): ShopClosure | null {
+  const active = rows.filter((row) => {
+    const start = Date.parse(row.effective_starts_at);
+    const end = Date.parse(row.effective_ends_at);
+    return Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end;
+  });
+  return active.find((row) => row.kind === "full_day") ?? active[0] ?? null;
+}
+
+function pickNextClosure(rows: ShopClosure[], now: number): ShopClosure | null {
+  return (
+    [...rows]
+      .filter((row) => Date.parse(row.effective_starts_at) > now)
+      .sort(
+        (a, b) => Date.parse(a.effective_starts_at) - Date.parse(b.effective_starts_at),
+      )[0] ?? null
+  );
+}
+
+type ShopScheduleNotice = {
+  tone: "closed" | "hours" | "upcoming";
+  topline: string;
+  title: string;
+  detail: string;
+  extra?: string;
+};
+
+function shopScheduleNotice(
+  shop: ShopSettings | null,
+  closures: ShopClosure[],
+  now = Date.now(),
+): ShopScheduleNotice | null {
+  if (shop && !shop.is_open) {
+    return {
+      tone: "closed",
+      topline: shop.reason ? `Closed · ${shop.reason}` : "Closed",
+      title: "Shop is closed",
+      detail: shop.reason || "Please check back later.",
+    };
+  }
+
+  let current = pickCurrentClosure(closures, now);
+  if (current?.kind === "hours" && isHoursOverrideActive(shop, now)) {
+    current = null;
+  }
+
+  if (current?.kind === "full_day") {
+    const until = formatDateTimeLabel(current.effective_ends_at);
+    return {
+      tone: "closed",
+      topline: until ? `Closed until ${until}` : "Closed",
+      title: current.message || "Scheduled close",
+      detail: until ? `Closed until ${until}.` : "Closed for these dates.",
+      extra: "Bookings for these dates are paused.",
+    };
+  }
+
+  if (current?.kind === "hours") {
+    const until = formatDateTimeLabel(current.effective_ends_at);
+    return {
+      tone: "hours",
+      topline: until ? `Counter closed until ${until}` : "Counter closed",
+      title: current.message || "Counter is closed",
+      detail: until ? `Desk closed until ${until}.` : "The desk is closed.",
+      extra: "You can still book online.",
+    };
+  }
+
+  const next = pickNextClosure(closures, now);
+  if (!next) return null;
+  const start = formatDateTimeLabel(next.effective_starts_at);
+  const end = formatDateTimeLabel(next.effective_ends_at);
+  const kind = next.kind === "full_day" ? "Full-day close" : "Counter close";
+  return {
+    tone: "upcoming",
+    topline: start ? `Next close · ${start}` : "Scheduled close coming",
+    title: next.message || `Next: ${kind}`,
+    detail: start && end ? `${start} → ${end}` : kind,
+  };
+}
+
 // =============================================================================
 // Header
 // =============================================================================
@@ -206,6 +293,7 @@ function AppHeader({
   const { session, profile, loading: authLoading, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [shopNotice, setShopNotice] = useState<ShopSettings | null>(null);
+  const [shopClosures, setShopClosures] = useState<ShopClosure[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -216,16 +304,32 @@ function AppHeader({
       .catch(() => {
         if (!controller.signal.aborted) setShopNotice(null);
       });
-    const onChange = (event: Event) => {
+    api
+      .listShopClosures(controller.signal)
+      .then(setShopClosures)
+      .catch(() => {
+        if (!controller.signal.aborted) setShopClosures([]);
+      });
+    const onSettings = (event: Event) => {
       const detail = (event as CustomEvent<ShopSettings>).detail;
       if (detail) setShopNotice(detail);
     };
-    window.addEventListener("shop-settings", onChange);
+    const onClosures = () => {
+      api
+        .listShopClosures()
+        .then(setShopClosures)
+        .catch(() => setShopClosures([]));
+    };
+    window.addEventListener("shop-settings", onSettings);
+    window.addEventListener("shop-closures", onClosures);
     return () => {
       controller.abort();
-      window.removeEventListener("shop-settings", onChange);
+      window.removeEventListener("shop-settings", onSettings);
+      window.removeEventListener("shop-closures", onClosures);
     };
   }, []);
+
+  const scheduleNotice = shopScheduleNotice(shopNotice, shopClosures);
 
   const role = profile?.role;
   const tabs: { id: View; label: string }[] = [
@@ -298,9 +402,15 @@ function AppHeader({
         <span className="topline-date">
           Today · {formatDateLabel(todayIso())}
         </span>
-        {shopNotice && !shopNotice.is_open && (
-          <span className="topline-closed">
-            Closed{shopNotice.reason ? ` · ${shopNotice.reason}` : ""}
+        {scheduleNotice && (
+          <span
+            className={
+              scheduleNotice.tone === "upcoming" || scheduleNotice.tone === "hours"
+                ? "topline-schedule"
+                : "topline-closed"
+            }
+          >
+            {scheduleNotice.topline}
           </span>
         )}
       </div>
@@ -381,10 +491,24 @@ function AppHeader({
           </button>
         </div>
       </header>
-      {shopNotice && !shopNotice.is_open && (
-        <div className="shop-closed-banner" role="status">
-          <strong>Shop is closed</strong>
-          <span>{shopNotice.reason || "Please check back later."}</span>
+      {scheduleNotice && (
+        <div
+          className={
+            scheduleNotice.tone === "upcoming"
+              ? "shop-closed-banner is-upcoming"
+              : scheduleNotice.tone === "hours"
+                ? "shop-closed-banner is-hours"
+                : "shop-closed-banner"
+          }
+          role="status"
+        >
+          <strong>{scheduleNotice.title}</strong>
+          <span>
+            {scheduleNotice.detail}
+            {scheduleNotice.extra ? (
+              <span className="banner-extra"> {scheduleNotice.extra}</span>
+            ) : null}
+          </span>
         </div>
       )}
       {menuOpen && (
@@ -2452,6 +2576,7 @@ function ShopClosuresCard() {
       setPreview(null);
       setMessage("");
       reload();
+      window.dispatchEvent(new Event("shop-closures"));
     } catch (cause) {
       toast.error(
         cause instanceof ApiError ? cause.message : "Could not save the closure.",
@@ -2467,6 +2592,7 @@ function ShopClosuresCard() {
       await api.deleteAdminClosure(id);
       toast.success("Closure removed");
       reload();
+      window.dispatchEvent(new Event("shop-closures"));
     } catch (cause) {
       toast.error(
         cause instanceof ApiError ? cause.message : "Could not remove the closure.",
@@ -2652,7 +2778,7 @@ function ShopClosuresCard() {
       )}
       <div className="user-list">
         {closures?.map((row) => (
-          <div className="user-row" key={row.id}>
+          <div className="user-row closure-row" key={row.id}>
             <span className="avatar">{row.kind === "hours" ? "H" : "D"}</span>
             <div>
               <strong>{row.message || (row.kind === "hours" ? "Hours close" : "Full-day close")}</strong>

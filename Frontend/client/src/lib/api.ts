@@ -129,6 +129,9 @@ export const api = {
   getShopSettings: (signal?: AbortSignal) =>
     request<ShopSettings>("/shop/settings", { signal }),
 
+  listShopClosures: (signal?: AbortSignal) =>
+    request<ShopClosure[]>("/shop/closures", { signal }),
+
   updateShopSettings: (body: ShopUpdate) =>
     request<ShopSettings>("/admin/shop/settings", { method: "PUT", body, auth: true }),
 
