@@ -1,8 +1,9 @@
 """Bike inventory management, shop open/closed toggle, users, audit log."""
 
 import uuid
+from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -10,13 +11,23 @@ from bike_rental.auth import AdminUser
 from bike_rental.database import SessionDep
 from bike_rental.models import (
     AdminUserUpdate,
+    AuditLog,
+    AuditLogPageRead,
+    AuditLogRead,
     Bike,
     BikeCreate,
     BikeRead,
     BikeStatus,
     BikeUpdate,
+    Booking,
+    PaymentMethod,
+    PaymentMethodRevenueRead,
+    PaymentStatus,
+    RateRevenueRead,
+    RateSelected,
     Rental,
     RentalStatus,
+    RevenueReportRead,
     Role,
     RoleName,
     ShopSettings,
@@ -73,6 +84,79 @@ def _other_active_admins(session: Session, user_id: uuid.UUID) -> list[uuid.UUID
         .where(User.is_active.is_(True))
         .where(User.id != user_id)
     ).all()
+
+
+@router.get("/reports/revenue", response_model=RevenueReportRead)
+def get_revenue_report(
+    user: AdminUser,
+    session: SessionDep,
+) -> RevenueReportRead:
+    rows = session.exec(
+        select(
+            Booking.payment_method,
+            Booking.rate_selected,
+            func.sum(Booking.amount_paid),
+        )
+        .where(Booking.payment_status == PaymentStatus.paid)
+        .group_by(Booking.payment_method, Booking.rate_selected)
+    ).all()
+
+    by_payment_method = PaymentMethodRevenueRead()
+    by_rate = RateRevenueRead()
+    total = Decimal("0.00")
+    for payment_method, rate_selected, amount in rows:
+        paid = amount or Decimal("0.00")
+        total += paid
+        if payment_method == PaymentMethod.cash:
+            by_payment_method.cash += paid
+        else:
+            by_payment_method.gcash += paid
+        if rate_selected == RateSelected.daily:
+            by_rate.daily += paid
+        else:
+            by_rate.weekly += paid
+
+    return RevenueReportRead(
+        total=total,
+        by_payment_method=by_payment_method,
+        by_rate=by_rate,
+    )
+
+
+@router.get("/audit-logs", response_model=AuditLogPageRead)
+def list_audit_logs(
+    user: AdminUser,
+    session: SessionDep,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+) -> AuditLogPageRead:
+    total = session.exec(select(func.count(AuditLog.id))).one()
+    rows = session.exec(
+        select(AuditLog, User)
+        .join(User, User.id == AuditLog.actor_id, isouter=True)
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    return AuditLogPageRead(
+        items=[
+            AuditLogRead(
+                id=log.id,
+                actor_id=log.actor_id,
+                actor_name=actor.name if actor else None,
+                actor_email=actor.email if actor else None,
+                action=log.action,
+                target_table=log.target_table,
+                target_id=log.target_id,
+                details=log.details,
+                created_at=log.created_at,
+            )
+            for log, actor in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/bikes", response_model=list[BikeRead])

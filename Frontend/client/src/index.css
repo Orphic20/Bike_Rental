@@ -570,6 +570,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .swap-row div:nth-child(2) { display: flex; flex-direction: column; gap: 4px; }
 .swap-row div:nth-child(2) span { color: #89958c; font-size: 10px; }
 .admin-metrics { grid-template-columns: 1.35fr repeat(3, 1fr); }
+.revenue-metrics { grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr)); }
 .admin-metric-card { min-height: 145px; }
 .admin-metric-card.main-metric { background: #223633; color: #f6f3ec; border-color: #223633; overflow: hidden; }
 .main-metric .micro-label, .main-metric small { color: #a8baac; }
@@ -614,6 +615,12 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .table-row { min-height: 58px; border-top: 1px solid #e4e2d7; color: #68776e; font-size: 10px; }
 .table-row > strong { color: #364f46; }
 .table-row > span:nth-child(2) { color: #40584f; font-weight: 700; }
+.audit-card { max-width: 980px; }
+.audit-card .async-note { margin-top: 18px; }
+.audit-table-head, .audit-table-row { grid-template-columns: 1.15fr 1fr 1fr .9fr; }
+.audit-table-row > span:nth-child(3) { overflow-wrap: anywhere; }
+.audit-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding-top: 18px; color: #7d8981; font-size: 10px; }
+.audit-pagination .ghost-action:disabled { opacity: .4; cursor: not-allowed; }
 .bike-management { max-width: 980px; }
 .bike-table-head, .bike-table-row { grid-template-columns: 1.4fr 1fr .8fr .9fr auto; }
 .bike-table-row { cursor: pointer; }

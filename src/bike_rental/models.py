@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Column, Computed, DateTime, ForeignKey, Numeric, Text, func
@@ -420,12 +420,46 @@ class UserRead(SQLModel):
     is_active: bool
 
 
+class PaymentMethodRevenueRead(SQLModel):
+    cash: Decimal = Decimal("0.00")
+    gcash: Decimal = Decimal("0.00")
+
+
+class RateRevenueRead(SQLModel):
+    daily: Decimal = Decimal("0.00")
+    weekly: Decimal = Decimal("0.00")
+
+
+class RevenueReportRead(SQLModel):
+    total: Decimal = Decimal("0.00")
+    by_payment_method: PaymentMethodRevenueRead
+    by_rate: RateRevenueRead
+
+
+class AuditLogRead(SQLModel):
+    id: uuid.UUID
+    actor_id: Optional[uuid.UUID] = None
+    actor_name: Optional[str] = None
+    actor_email: Optional[str] = None
+    action: str
+    target_table: str
+    target_id: Optional[uuid.UUID] = None
+    details: Optional[dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+
+
+class AuditLogPageRead(SQLModel):
+    items: list[AuditLogRead]
+    total: int
+    page: int
+    page_size: int
+
+
 class StaffBookingRead(BookingRead):
     customer_name: str
     customer_email: str
     gcash_ref_no: Optional[str] = None
     gcash_receipt_url: Optional[str] = None
-
 
 
 class BikeCreate(SQLModel):

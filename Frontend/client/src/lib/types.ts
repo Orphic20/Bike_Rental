@@ -135,6 +135,37 @@ export interface UserUpdate {
   is_active?: boolean;
 }
 
+export interface RevenueReport {
+  total: string;
+  by_payment_method: {
+    cash: string;
+    gcash: string;
+  };
+  by_rate: {
+    daily: string;
+    weekly: string;
+  };
+}
+
+export interface AuditLog {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_email: string | null;
+  action: string;
+  target_table: string;
+  target_id: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string | null;
+}
+
+export interface AuditLogPage {
+  items: AuditLog[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export const BIKE_TYPE_LABELS: Record<BikeType, string> = {
   japanese: "Japanese bike",
   folding: "Folding bike",

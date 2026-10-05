@@ -1,6 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
-import type { Bike, Booking, RateSelected, StaffBooking, User } from "@/lib/types";
+import type {
+  AuditLogPage,
+  Bike,
+  Booking,
+  RateSelected,
+  RevenueReport,
+  StaffBooking,
+  User,
+} from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 
 interface Resource<T> {
@@ -216,6 +224,86 @@ export function useAdminUsers(): Resource<User[]> {
 
     return () => controller.abort();
   }, [session, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+/** Exact paid revenue grouped by payment method and selected rate. Admin only. */
+export function useAdminRevenue(): Resource<RevenueReport> {
+  const { session } = useAuth();
+  const [data, setData] = useState<RevenueReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    api
+      .getAdminRevenue(controller.signal)
+      .then((report) => {
+        setData(report);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+/** Newest-first audit history with server-side pagination. Admin only. */
+export function useAdminAuditLogs(page: number, pageSize = 25): Resource<AuditLogPage> {
+  const { session } = useAuth();
+  const [data, setData] = useState<AuditLogPage | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    api
+      .listAdminAuditLogs(page, pageSize, controller.signal)
+      .then((logs) => {
+        setData(logs);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, page, pageSize, nonce]);
 
   return { data, loading, error, reload };
 }

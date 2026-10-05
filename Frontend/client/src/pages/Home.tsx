@@ -2,9 +2,9 @@
   Coastal Utility Atelier: warm daylight, editorial asymmetry, crisp rental utility,
   tactile artwork, and restrained clay-red interaction cues.
 
-  The customer path (landing, catalogue, booking, my rides) and the staff desk
-  run on the FastAPI service. Admin inventory counts are live; revenue tables
-  are still a local prototype until Phase 4 endpoints exist.
+  The customer path (landing, catalogue, booking, my rides), staff desk, and
+  Admin inventory, revenue, and audit views run on the FastAPI service.
+  The Admin reservation overview remains a labelled local prototype.
 */
 import { AuthDialog } from "@/components/AuthDialog";
 import foldingBike from "@/assets/folding-bike.png";
@@ -14,7 +14,15 @@ import mountainBike from "@/assets/mountain-bike.png";
 import munozBikeFront from "@/assets/munoz-bike-front.png";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminBikes, useAdminUsers, useBikes, useMyBookings, useStaffBookings } from "@/hooks/useApi";
+import {
+  useAdminAuditLogs,
+  useAdminBikes,
+  useAdminRevenue,
+  useAdminUsers,
+  useBikes,
+  useMyBookings,
+  useStaffBookings,
+} from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { SHOP_ADDRESS, SHOP_MAPS_EMBED_URL, SHOP_MAPS_URL, WAIVER_VERSION } from "@/lib/constants";
 import {
@@ -1968,7 +1976,7 @@ function MyRides({
 }
 
 // =============================================================================
-// Staff and admin — still local prototypes, no endpoints behind them yet
+// Staff and admin
 // =============================================================================
 
 function PrototypeBanner({ surface }: { surface: string }) {
@@ -1976,8 +1984,7 @@ function PrototypeBanner({ surface }: { surface: string }) {
     <div className="async-note" role="status">
       <AlertTriangle size={15} />
       <span>
-        The {surface} screens show sample data. Their API routers are registered but do
-        not expose endpoints yet, so nothing here is saved.
+        The {surface} still shows sample data and is not connected to the API yet.
       </span>
     </div>
   );
@@ -1988,6 +1995,12 @@ const sampleReservations = [
   { id: "VC-4820", name: "Daniel Cruz", bike: "Folding bike", time: "10:00 AM", status: "GCash verification", payment: "₱1,140 online", tone: "review" },
   { id: "VC-4817", name: "Ava Reyes", bike: "Mountain bike", time: "11:00 AM", status: "Ready for pickup", payment: "Cash at counter", tone: "ready" },
 ];
+
+function auditActionLabel(action: string): string {
+  return action
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function StaffView() {
   const { profile } = useAuth();
@@ -2354,8 +2367,11 @@ function StaffView() {
 
 function AdminView() {
   const { profile } = useAuth();
+  const [auditPage, setAuditPage] = useState(1);
   const fleet = useAdminBikes();
   const accounts = useAdminUsers();
+  const revenueReport = useAdminRevenue();
+  const auditHistory = useAdminAuditLogs(auditPage);
   const { data: bikes, loading, error, reload } = fleet;
   const {
     data: users,
@@ -2363,7 +2379,21 @@ function AdminView() {
     error: usersError,
     reload: reloadUsers,
   } = accounts;
-  const [screen, setScreen] = useState<"overview" | "bikes" | "users">("bikes");
+  const {
+    data: revenue,
+    loading: revenueLoading,
+    error: revenueError,
+    reload: reloadRevenue,
+  } = revenueReport;
+  const {
+    data: auditLogs,
+    loading: auditLoading,
+    error: auditError,
+    reload: reloadAudit,
+  } = auditHistory;
+  const [screen, setScreen] = useState<"overview" | "bikes" | "users" | "audit">(
+    "bikes",
+  );
   const [name, setName] = useState("");
   const [type, setType] = useState<BikeType>("japanese");
   const [dailyRate, setDailyRate] = useState("");
@@ -2483,6 +2513,11 @@ function AdminView() {
     });
   }, [users, userQuery]);
 
+  const auditPages = Math.max(
+    1,
+    Math.ceil((auditLogs?.total ?? 0) / (auditLogs?.page_size ?? 25)),
+  );
+
   const patchUser = async (account: User, body: { role?: RoleName; is_active?: boolean }, label: string) => {
     setUserBusyId(account.id);
     try {
@@ -2572,6 +2607,13 @@ function AdminView() {
         >
           <Users size={17} /> User management
         </button>
+        <button
+          className={screen === "audit" ? "sidebar-link active" : "sidebar-link"}
+          type="button"
+          onClick={() => setScreen("audit")}
+        >
+          <ClipboardCheck size={17} /> Audit history
+        </button>
       </aside>
       <main className="product-main">
         <section className={shop && !shop.is_open ? "admin-card shop-status-card is-closed" : "admin-card shop-status-card"}>
@@ -2621,14 +2663,18 @@ function AdminView() {
                   ? "Bike management."
                   : screen === "users"
                     ? "User management."
-                    : "Business overview."}
+                    : screen === "audit"
+                      ? "Audit history."
+                      : "Business overview."}
             </h1>
             <p>
               {screen === "bikes"
                 ? "Fleet list first. Open the form only when you need a new bike."
                 : screen === "users"
                   ? "Promote staff, restore access, or suspend an account. You cannot demote the last admin."
-                  : "Fleet status is live from GET /admin/bikes, including retired."}
+                  : screen === "audit"
+                    ? "Review recorded staff and admin actions, newest first."
+                    : "Live fleet health and exact paid revenue across every completed payment."}
             </p>
           </div>
           {screen === "bikes" && !adding && !editing && (
@@ -2638,11 +2684,18 @@ function AdminView() {
           )}
         </div>
 
-        {screen === "users"
-          ? usersError && (
-              <AsyncNote tone="error" message={usersError} onRetry={reloadUsers} />
-            )
-          : error && <AsyncNote tone="error" message={error} onRetry={reload} />}
+        {screen === "users" && usersError && (
+          <AsyncNote tone="error" message={usersError} onRetry={reloadUsers} />
+        )}
+        {(screen === "bikes" || screen === "overview") && error && (
+          <AsyncNote tone="error" message={error} onRetry={reload} />
+        )}
+        {screen === "overview" && revenueError && (
+          <AsyncNote tone="error" message={revenueError} onRetry={reloadRevenue} />
+        )}
+        {screen === "audit" && auditError && (
+          <AsyncNote tone="error" message={auditError} onRetry={reloadAudit} />
+        )}
 
         {screen === "overview" && !error && (
           <>
@@ -2682,7 +2735,50 @@ function AdminView() {
               ))}
             </section>
 
-            <PrototypeBanner surface="revenue and reservation" />
+            {!revenueError && (
+              <section className="admin-metrics revenue-metrics" aria-busy={revenueLoading}>
+                <article className="admin-metric-card main-metric">
+                  <span className="metric-icon navy-icon">
+                    <WalletCards size={17} />
+                  </span>
+                  <span className="micro-label">Exact paid revenue</span>
+                  <strong>{revenueLoading ? "…" : formatPeso(revenue?.total)}</strong>
+                  <small>All completed cash and GCash payments</small>
+                </article>
+                <article className="admin-metric-card">
+                  <span className="metric-icon sage-icon">
+                    <CreditCard size={17} />
+                  </span>
+                  <span className="micro-label">Cash</span>
+                  <strong>
+                    {revenueLoading ? "…" : formatPeso(revenue?.by_payment_method.cash)}
+                  </strong>
+                  <small>Recorded at pickup</small>
+                </article>
+                <article className="admin-metric-card">
+                  <span className="metric-icon clay-icon">
+                    <FileCheck2 size={17} />
+                  </span>
+                  <span className="micro-label">GCash</span>
+                  <strong>
+                    {revenueLoading ? "…" : formatPeso(revenue?.by_payment_method.gcash)}
+                  </strong>
+                  <small>Verified receipt payments</small>
+                </article>
+                <article className="admin-metric-card">
+                  <span className="micro-label">Daily rate</span>
+                  <strong>{revenueLoading ? "…" : formatPeso(revenue?.by_rate.daily)}</strong>
+                  <small>Paid daily bookings</small>
+                </article>
+                <article className="admin-metric-card">
+                  <span className="micro-label">Weekly rate</span>
+                  <strong>{revenueLoading ? "…" : formatPeso(revenue?.by_rate.weekly)}</strong>
+                  <small>Paid weekly bookings</small>
+                </article>
+              </section>
+            )}
+
+            <PrototypeBanner surface="reservation overview" />
 
             <section className="admin-card reservations-table">
               <div className="card-title-row">
@@ -2702,6 +2798,74 @@ function AdminView() {
               ))}
             </section>
           </>
+        )}
+
+        {screen === "audit" && !auditError && (
+          <section className="admin-card audit-card">
+            <div className="card-title-row">
+              <div>
+                <span className="micro-label">Recorded actions · live</span>
+                <h2>Audit history</h2>
+              </div>
+              <Pill tone="stone">{auditLogs?.total ?? 0} entries</Pill>
+            </div>
+
+            {auditLoading && !auditLogs ? (
+              <div className="async-note" role="status">
+                <ClipboardCheck size={15} />
+                <span>Loading audit history…</span>
+              </div>
+            ) : auditLogs?.items.length ? (
+              <>
+                <div className="table-head audit-table-head" aria-hidden="true">
+                  <span>Action</span>
+                  <span>Actor</span>
+                  <span>Target</span>
+                  <span>Recorded</span>
+                </div>
+                {auditLogs.items.map((entry) => (
+                  <div className="table-row audit-table-row" key={entry.id}>
+                    <strong>{auditActionLabel(entry.action)}</strong>
+                    <span title={entry.actor_email ?? undefined}>
+                      {entry.actor_name ?? entry.actor_email ?? "System"}
+                    </span>
+                    <span>
+                      {entry.target_table}
+                      {entry.target_id ? ` · ${entry.target_id.slice(0, 8)}` : ""}
+                    </span>
+                    <span>{formatDateTimeLabel(entry.created_at) ?? "Time unavailable"}</span>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="async-note" role="status">
+                <ClipboardCheck size={15} />
+                <span>No audit entries have been recorded yet.</span>
+              </div>
+            )}
+
+            <div className="audit-pagination">
+              <button
+                className="ghost-action"
+                type="button"
+                disabled={auditPage <= 1 || auditLoading}
+                onClick={() => setAuditPage((page) => Math.max(1, page - 1))}
+              >
+                Previous
+              </button>
+              <span>
+                Page {auditPage} of {auditPages}
+              </span>
+              <button
+                className="ghost-action"
+                type="button"
+                disabled={auditPage >= auditPages || auditLoading}
+                onClick={() => setAuditPage((page) => Math.min(auditPages, page + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </section>
         )}
 
         {screen === "bikes" && (

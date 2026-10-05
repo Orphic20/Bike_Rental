@@ -72,6 +72,8 @@ UI says so.
 | `POST /bookings` | Create a group booking, one rental row per bike | bearer |
 | `GET /bookings` | Bookings the caller owns, newest first | bearer |
 | `GET /bookings/{id}` | A single owned booking | bearer |
+| `GET /admin/reports/revenue` | Paid revenue totals split by payment method and rate | admin bearer |
+| `GET /admin/audit-logs?page=1&page_size=25` | Paginated audit history, newest first | admin bearer |
 
 Money is `numeric(10,2)` in Postgres and serialises as a **string** in JSON, so
 parse before doing arithmetic. The frontend uses `toAmount` in `lib/format.ts`.
@@ -83,12 +85,12 @@ from advertising a bike the booking endpoint would refuse with a 409.
 
 ## Not built yet
 
-The `payments`, `staff`, `admin`, and `extensions_swaps` routers are registered
-but expose no endpoints. Consequently:
+The `extensions_swaps` router is registered but does not expose endpoints.
+Consequently:
 
-- The Staff and Admin screens run on sample data and are labelled as such. Admin
-  inventory counts are the exception; they come from `GET /bikes`.
 - "Extend rent" and "Request a swap" tell the customer the feature is pending.
-- GCash proof is submitted as a receipt **link** plus reference number. Direct
-  file upload needs an endpoint (Cloudinary is already a backend dependency).
-- Staff cannot record payment or release a bike, so bookings stay `reserved`.
+- The Admin reservation overview still uses sample data. Revenue reporting and
+  paginated audit history are live.
+- `GET /admin/audit-logs` reads existing `audit_logs` rows; mutation endpoints
+  still need to record the full set of audit events described in
+  `ARCHITECTURE.md`.

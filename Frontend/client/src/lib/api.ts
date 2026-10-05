@@ -1,5 +1,6 @@
 import { getAccessToken } from "@/lib/supabase";
 import type {
+  AuditLogPage,
   Bike,
   BikeCreate,
   BikeType,
@@ -9,6 +10,7 @@ import type {
   Booking,
   BookingCreate,
   RateSelected,
+  RevenueReport,
   Rental,
   StaffBooking,
   User,
@@ -132,6 +134,16 @@ export const api = {
 
   updateAdminUser: (id: string, body: UserUpdate) =>
     request<User>(`/admin/users/${id}`, { method: "PATCH", body, auth: true }),
+
+  getAdminRevenue: (signal?: AbortSignal) =>
+    request<RevenueReport>("/admin/reports/revenue", { auth: true, signal }),
+
+  listAdminAuditLogs: (page = 1, pageSize = 25, signal?: AbortSignal) =>
+    request<AuditLogPage>("/admin/audit-logs", {
+      auth: true,
+      query: { page, page_size: pageSize },
+      signal,
+    }),
 
   listBikes: (
     params: {
