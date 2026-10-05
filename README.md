@@ -89,8 +89,8 @@ The `extensions_swaps` router is registered but does not expose endpoints.
 Consequently:
 
 - "Extend rent" and "Request a swap" tell the customer the feature is pending.
-- The Admin reservation overview still uses sample data. Revenue reporting and
-  paginated audit history are live.
+- Admin inventory, reservations, revenue reporting, and paginated audit history
+  are live.
 - `GET /admin/audit-logs` reads existing `audit_logs` rows; mutation endpoints
   still need to record the full set of audit events described in
   `ARCHITECTURE.md`.

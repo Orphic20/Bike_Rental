@@ -3,8 +3,7 @@
   tactile artwork, and restrained clay-red interaction cues.
 
   The customer path (landing, catalogue, booking, my rides), staff desk, and
-  Admin inventory, revenue, and audit views run on the FastAPI service.
-  The Admin reservation overview remains a labelled local prototype.
+  Admin inventory, revenue, reservation, and audit views run on FastAPI.
 */
 import { AuthDialog } from "@/components/AuthDialog";
 import foldingBike from "@/assets/folding-bike.png";
@@ -1979,23 +1978,6 @@ function MyRides({
 // Staff and admin
 // =============================================================================
 
-function PrototypeBanner({ surface }: { surface: string }) {
-  return (
-    <div className="async-note" role="status">
-      <AlertTriangle size={15} />
-      <span>
-        The {surface} still shows sample data and is not connected to the API yet.
-      </span>
-    </div>
-  );
-}
-
-const sampleReservations = [
-  { id: "VC-4821", name: "Mia Santos", bike: "Japanese bike", time: "9:30 AM", status: "Ready for pickup", payment: "Cash at counter", tone: "ready" },
-  { id: "VC-4820", name: "Daniel Cruz", bike: "Folding bike", time: "10:00 AM", status: "GCash verification", payment: "₱1,140 online", tone: "review" },
-  { id: "VC-4817", name: "Ava Reyes", bike: "Mountain bike", time: "11:00 AM", status: "Ready for pickup", payment: "Cash at counter", tone: "ready" },
-];
-
 function auditActionLabel(action: string): string {
   return action
     .replace(/[._-]+/g, " ")
@@ -2372,6 +2354,7 @@ function AdminView() {
   const accounts = useAdminUsers();
   const revenueReport = useAdminRevenue();
   const auditHistory = useAdminAuditLogs(auditPage);
+  const reservationActivity = useStaffBookings("");
   const { data: bikes, loading, error, reload } = fleet;
   const {
     data: users,
@@ -2391,6 +2374,12 @@ function AdminView() {
     error: auditError,
     reload: reloadAudit,
   } = auditHistory;
+  const {
+    data: reservations,
+    loading: reservationsLoading,
+    error: reservationsError,
+    reload: reloadReservations,
+  } = reservationActivity;
   const [screen, setScreen] = useState<"overview" | "bikes" | "users" | "audit">(
     "bikes",
   );
@@ -2693,6 +2682,13 @@ function AdminView() {
         {screen === "overview" && revenueError && (
           <AsyncNote tone="error" message={revenueError} onRetry={reloadRevenue} />
         )}
+        {screen === "overview" && reservationsError && (
+          <AsyncNote
+            tone="error"
+            message={reservationsError}
+            onRetry={reloadReservations}
+          />
+        )}
         {screen === "audit" && auditError && (
           <AsyncNote tone="error" message={auditError} onRetry={reloadAudit} />
         )}
@@ -2778,24 +2774,46 @@ function AdminView() {
               </section>
             )}
 
-            <PrototypeBanner surface="reservation overview" />
-
             <section className="admin-card reservations-table">
               <div className="card-title-row">
                 <div>
-                  <span className="micro-label">Latest activity · sample</span>
+                  <span className="micro-label">Latest activity · live</span>
                   <h2>Reservations</h2>
                 </div>
+                <Pill tone="stone">{reservations?.length ?? 0} total</Pill>
               </div>
-              {sampleReservations.map((item) => (
-                <div className="table-row" key={item.id}>
-                  <strong>{item.id}</strong>
-                  <span>{item.name}</span>
-                  <span>{item.bike}</span>
-                  <Pill tone={item.tone === "review" ? "clay" : "sage"}>{item.status}</Pill>
-                  <span>{item.payment}</span>
+              {reservationsLoading && !reservations ? (
+                <div className="async-note" role="status">
+                  <ClipboardCheck size={15} />
+                  <span>Loading reservations…</span>
                 </div>
-              ))}
+              ) : reservations?.length ? (
+                reservations.slice(0, 5).map((item) => {
+                  const status = deskStatus(item);
+                  return (
+                    <div className="table-row admin-reservation-row" key={item.id}>
+                      <strong>{item.booking_ref ?? item.id.slice(0, 8)}</strong>
+                      <span>{item.customer_name}</span>
+                      <span>
+                        {item.rentals
+                          .map((rental) => rental.bike_name ?? "Bike")
+                          .join(", ") || "No bikes"}
+                      </span>
+                      <Pill tone={status.tone}>{status.label}</Pill>
+                      <span>
+                        {item.payment_method === "cash"
+                          ? "Cash at counter"
+                          : `${formatPeso(item.total_price)} · GCash`}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="async-note" role="status">
+                  <ClipboardCheck size={15} />
+                  <span>No reservations yet.</span>
+                </div>
+              )}
             </section>
           </>
         )}
