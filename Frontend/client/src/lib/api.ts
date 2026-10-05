@@ -7,6 +7,9 @@ import type {
   BikeUpdate,
   ShopSettings,
   ShopUpdate,
+  ShopClosure,
+  ShopClosureCreate,
+  ClosurePreview,
   Booking,
   BookingCreate,
   RateSelected,
@@ -128,6 +131,25 @@ export const api = {
 
   updateShopSettings: (body: ShopUpdate) =>
     request<ShopSettings>("/admin/shop/settings", { method: "PUT", body, auth: true }),
+
+  openShopAnyway: () =>
+    request<ShopSettings>("/admin/shop/open-anyway", { method: "POST", auth: true }),
+
+  listAdminClosures: (signal?: AbortSignal) =>
+    request<ShopClosure[]>("/admin/closures", { auth: true, signal }),
+
+  previewShopClosure: (body: ShopClosureCreate) =>
+    request<ClosurePreview>("/admin/closures/preview", {
+      method: "POST",
+      body,
+      auth: true,
+    }),
+
+  createShopClosure: (body: ShopClosureCreate) =>
+    request<ShopClosure>("/admin/closures", { method: "POST", body, auth: true }),
+
+  deleteAdminClosure: (id: string) =>
+    request<void>(`/admin/closures/${id}`, { method: "DELETE", auth: true }),
 
   listAdminUsers: (signal?: AbortSignal) =>
     request<User[]>("/admin/users", { auth: true, signal }),

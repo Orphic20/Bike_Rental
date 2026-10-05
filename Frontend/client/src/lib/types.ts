@@ -123,6 +123,7 @@ export interface ShopSettings {
   is_open: boolean;
   updated_at: string | null;
   reason: string | null;
+  schedule_override_until: string | null;
 }
 
 export interface ShopUpdate {
@@ -133,6 +134,47 @@ export interface ShopUpdate {
 export interface UserUpdate {
   role?: RoleName;
   is_active?: boolean;
+}
+
+export type ClosureKind = "hours" | "full_day";
+
+export type ClosureBufferMinutes = 0 | 30 | 60;
+
+export interface ShopClosure {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  effective_starts_at: string;
+  effective_ends_at: string;
+  kind: ClosureKind;
+  buffer_before_min: number;
+  buffer_after_min: number;
+  message: string | null;
+  created_by_admin_id: string | null;
+  created_at: string | null;
+}
+
+export interface ShopClosureCreate {
+  starts_at: string;
+  ends_at: string;
+  kind: ClosureKind;
+  buffer_before_min: ClosureBufferMinutes;
+  buffer_after_min: ClosureBufferMinutes;
+  message?: string | null;
+}
+
+export interface ClosureConflict {
+  booking_id: string;
+  booking_ref: string | null;
+  customer_name: string;
+  customer_email: string;
+  expected_pickup_date: string;
+}
+
+export interface ClosurePreview {
+  effective_starts_at: string;
+  effective_ends_at: string;
+  conflicts: ClosureConflict[];
 }
 
 export interface RevenueReport {

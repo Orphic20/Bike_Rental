@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useAdminAuditLogs,
   useAdminBikes,
+  useAdminClosures,
   useAdminRevenue,
   useAdminUsers,
   useBikes,
@@ -41,9 +42,13 @@ import {
   type BikeStatus,
   type BikeType,
   type Booking,
+  type ClosureBufferMinutes,
+  type ClosureKind,
+  type ClosurePreview,
   type PaymentMethod,
   type RateSelected,
   type RoleName,
+  type ShopClosureCreate,
   type ShopSettings,
   type StaffBooking,
   type User,
@@ -2347,6 +2352,336 @@ function StaffView() {
   );
 }
 
+function localDateTimeToIso(value: string): string {
+  return new Date(value).toISOString();
+}
+
+function localDateStartIso(value: string): string {
+  return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function localDateExclusiveEndIso(value: string): string {
+  const next = new Date(`${value}T00:00:00`);
+  next.setDate(next.getDate() + 1);
+  return next.toISOString();
+}
+
+function ShopClosuresCard() {
+  const list = useAdminClosures();
+  const { data: closures, loading, error, reload } = list;
+  const [kind, setKind] = useState<ClosureKind>("hours");
+  const [startLocal, setStartLocal] = useState("");
+  const [endLocal, setEndLocal] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [bufferBefore, setBufferBefore] = useState<ClosureBufferMinutes>(0);
+  const [bufferAfter, setBufferAfter] = useState<ClosureBufferMinutes>(30);
+  const [message, setMessage] = useState("");
+  const [preview, setPreview] = useState<ClosurePreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const buildBody = (): ShopClosureCreate | null => {
+    const note = message.trim() || null;
+    if (kind === "hours") {
+      if (!startLocal || !endLocal) {
+        toast.warning("Set start and end times");
+        return null;
+      }
+      return {
+        starts_at: localDateTimeToIso(startLocal),
+        ends_at: localDateTimeToIso(endLocal),
+        kind,
+        buffer_before_min: bufferBefore,
+        buffer_after_min: bufferAfter,
+        message: note,
+      };
+    }
+    if (!startDate || !endDate) {
+      toast.warning("Set the first and last closed dates");
+      return null;
+    }
+    if (endDate < startDate) {
+      toast.warning("Last day must be on or after the first day");
+      return null;
+    }
+    return {
+      starts_at: localDateStartIso(startDate),
+      ends_at: localDateExclusiveEndIso(endDate),
+      kind,
+      buffer_before_min: bufferBefore,
+      buffer_after_min: bufferAfter,
+      message: note,
+    };
+  };
+
+  const runPreview = async () => {
+    const body = buildBody();
+    if (!body) return;
+    setBusy(true);
+    try {
+      const next = await api.previewShopClosure(body);
+      setPreview(next);
+      if (next.conflicts.length === 0) {
+        toast.success("No overlapping reservations");
+      } else {
+        toast.warning(`${next.conflicts.length} booking(s) overlap this window`);
+      }
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not preview the closure.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveClosure = async () => {
+    const body = buildBody();
+    if (!body) return;
+    setBusy(true);
+    try {
+      const checked = preview ?? (await api.previewShopClosure(body));
+      setPreview(checked);
+      await api.createShopClosure(body);
+      toast.success(
+        checked.conflicts.length
+          ? "Closure saved. Email the customers on the list."
+          : "Closure saved",
+      );
+      setPreview(null);
+      setMessage("");
+      reload();
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not save the closure.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeClosure = async (id: string) => {
+    setRemovingId(id);
+    try {
+      await api.deleteAdminClosure(id);
+      toast.success("Closure removed");
+      reload();
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not remove the closure.",
+      );
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <section className="admin-card shop-closures-card">
+      <div className="card-title-row">
+        <div>
+          <span className="micro-label">Scheduled closures · live</span>
+          <h2>Blockouts</h2>
+          <p>
+            Hours-only still lets customers book that date. Full-day rejects new
+            bookings. Preview first if that window already has reservations.
+          </p>
+        </div>
+        <Pill tone="sage">{closures?.length ?? 0}</Pill>
+      </div>
+
+      <form
+        className="admin-bike-form shop-closure-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void runPreview();
+        }}
+      >
+        <label className="admin-field">
+          <span>Kind</span>
+          <select
+            className="admin-input"
+            value={kind}
+            onChange={(event) => {
+              setKind(event.target.value as ClosureKind);
+              setPreview(null);
+            }}
+          >
+            <option value="hours">Hours only</option>
+            <option value="full_day">Full day</option>
+          </select>
+        </label>
+        {kind === "hours" ? (
+          <>
+            <label className="admin-field">
+              <span>Starts</span>
+              <input
+                className="admin-input"
+                type="datetime-local"
+                value={startLocal}
+                onChange={(event) => {
+                  setStartLocal(event.target.value);
+                  setPreview(null);
+                }}
+                required
+              />
+            </label>
+            <label className="admin-field">
+              <span>Ends</span>
+              <input
+                className="admin-input"
+                type="datetime-local"
+                value={endLocal}
+                onChange={(event) => {
+                  setEndLocal(event.target.value);
+                  setPreview(null);
+                }}
+                required
+              />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="admin-field">
+              <span>First day</span>
+              <input
+                className="admin-input"
+                type="date"
+                value={startDate}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                  setPreview(null);
+                }}
+                required
+              />
+            </label>
+            <label className="admin-field">
+              <span>Last day</span>
+              <input
+                className="admin-input"
+                type="date"
+                value={endDate}
+                onChange={(event) => {
+                  setEndDate(event.target.value);
+                  setPreview(null);
+                }}
+                required
+              />
+            </label>
+          </>
+        )}
+        <label className="admin-field">
+          <span>Buffer before</span>
+          <select
+            className="admin-input"
+            value={bufferBefore}
+            onChange={(event) => {
+              setBufferBefore(Number(event.target.value) as ClosureBufferMinutes);
+              setPreview(null);
+            }}
+          >
+            <option value={0}>0 min</option>
+            <option value={30}>30 min</option>
+            <option value={60}>60 min</option>
+          </select>
+        </label>
+        <label className="admin-field">
+          <span>Buffer after</span>
+          <select
+            className="admin-input"
+            value={bufferAfter}
+            onChange={(event) => {
+              setBufferAfter(Number(event.target.value) as ClosureBufferMinutes);
+              setPreview(null);
+            }}
+          >
+            <option value={0}>0 min</option>
+            <option value={30}>30 min</option>
+            <option value={60}>60 min</option>
+          </select>
+        </label>
+        <label className="admin-field admin-field-wide">
+          <span>Message</span>
+          <input
+            className="admin-input"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder='e.g. Closed October 25–27 for Annual Fleet Maintenance'
+          />
+        </label>
+        <div className="shop-closure-actions">
+          <button className="ghost-action" type="submit" disabled={busy}>
+            {busy ? "Checking…" : "Review conflicts"}
+          </button>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={busy}
+            onClick={() => void saveClosure()}
+          >
+            Save closure
+          </button>
+        </div>
+      </form>
+
+      {preview && (
+        <div className="closure-preview">
+          <p>
+            Effective {formatDateTimeLabel(preview.effective_starts_at)} →{" "}
+            {formatDateTimeLabel(preview.effective_ends_at)}
+          </p>
+          {preview.conflicts.length === 0 ? (
+            <p>No overlapping reservations. Safe to save.</p>
+          ) : (
+            <ul>
+              {preview.conflicts.map((row) => (
+                <li key={row.booking_id}>
+                  {row.booking_ref ?? row.booking_id} · {row.customer_name} ·{" "}
+                  {row.customer_email} · pickup {formatDateLabel(row.expected_pickup_date)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {error && <AsyncNote tone="error" message={error} onRetry={reload} />}
+      {loading && !closures && <AsyncNote message="Loading closures…" />}
+      {closures && closures.length === 0 && !loading && (
+        <AsyncNote message="No scheduled closures yet." />
+      )}
+      <div className="user-list">
+        {closures?.map((row) => (
+          <div className="user-row" key={row.id}>
+            <span className="avatar">{row.kind === "hours" ? "H" : "D"}</span>
+            <div>
+              <strong>{row.message || (row.kind === "hours" ? "Hours close" : "Full-day close")}</strong>
+              <span>
+                {formatDateTimeLabel(row.effective_starts_at)} →{" "}
+                {formatDateTimeLabel(row.effective_ends_at)}
+                {row.buffer_before_min || row.buffer_after_min
+                  ? ` · buffers ${row.buffer_before_min}/${row.buffer_after_min} min`
+                  : ""}
+              </span>
+            </div>
+            <Pill tone={row.kind === "full_day" ? "clay" : "sage"}>
+              {row.kind === "full_day" ? "Full day" : "Hours"}
+            </Pill>
+            <button
+              className="text-button"
+              type="button"
+              disabled={removingId === row.id}
+              onClick={() => void removeClosure(row.id)}
+            >
+              {removingId === row.id ? "Removing…" : "Remove"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AdminView() {
   const { profile } = useAuth();
   const [auditPage, setAuditPage] = useState(1);
@@ -2430,6 +2765,22 @@ function AdminView() {
     } catch (cause) {
       toast.error(
         cause instanceof ApiError ? cause.message : "Could not update shop status.",
+      );
+    } finally {
+      setShopBusy(false);
+    }
+  };
+
+  const openAnyway = async () => {
+    setShopBusy(true);
+    try {
+      const next = await api.openShopAnyway();
+      setShop(next);
+      window.dispatchEvent(new CustomEvent("shop-settings", { detail: next }));
+      toast.success("Counter override is on until the window ends");
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : "Could not override the schedule.",
       );
     } finally {
       setShopBusy(false);
@@ -2615,6 +2966,12 @@ function AdminView() {
                   {shop.reason || "No reason given."}
                 </p>
               )}
+              {shop?.schedule_override_until &&
+                Date.parse(shop.schedule_override_until) > Date.now() && (
+                  <p className="shop-override-note">
+                    Open anyway until {formatDateTimeLabel(shop.schedule_override_until)}
+                  </p>
+                )}
             </div>
             <Pill tone={shop && !shop.is_open ? "clay" : "sage"}>
               {!shop ? "…" : shop.is_open ? "Open" : "Closed"}
@@ -2632,15 +2989,27 @@ function AdminView() {
               />
             </label>
           )}
-          <button
-            className={shop && !shop.is_open ? "shop-status-button closed" : "shop-status-button"}
-            type="button"
-            disabled={shopBusy || !shop}
-            onClick={() => shop && void saveShop(!shop.is_open)}
-          >
-            {shopBusy ? "Saving…" : shop?.is_open ? "Close shop" : "Open shop"}
-          </button>
+          <div className="shop-status-actions">
+            <button
+              className={shop && !shop.is_open ? "shop-status-button closed" : "shop-status-button"}
+              type="button"
+              disabled={shopBusy || !shop}
+              onClick={() => shop && void saveShop(!shop.is_open)}
+            >
+              {shopBusy ? "Saving…" : shop?.is_open ? "Close shop" : "Open shop"}
+            </button>
+            <button
+              className="shop-status-button"
+              type="button"
+              disabled={shopBusy || !shop}
+              onClick={() => void openAnyway()}
+            >
+              Open anyway
+            </button>
+          </div>
         </section>
+
+        <ShopClosuresCard />
 
         <div className="page-heading ops-heading">
           <div>

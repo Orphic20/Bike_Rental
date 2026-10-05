@@ -104,6 +104,11 @@ class SwapStatus(str, Enum):
     completed = "completed"
 
 
+class ClosureKind(str, Enum):
+    hours = "hours"
+    full_day = "full_day"
+
+
 # =========================================================
 # roles
 # =========================================================
@@ -301,6 +306,32 @@ class ShopSettings(SQLModel, table=True):
     updated_at: Optional[datetime] = Field(
         default=None, sa_column=timestamp_column(nullable=True)
     )
+    # Set by "Open anyway"; staff release/return ignore hours closures until this instant.
+    schedule_override_until: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+
+
+# =========================================================
+# shop_closures — planned full-day or hours blockouts
+# =========================================================
+class ShopClosure(SQLModel, table=True):
+    __tablename__ = "shop_closures"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(PG_UUID(as_uuid=True), primary_key=True),
+    )
+    starts_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    ends_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    kind: ClosureKind = Field(sa_column=Column(EnumText(ClosureKind), nullable=False))
+    buffer_before_min: int = Field(default=0)
+    buffer_after_min: int = Field(default=0)
+    message: Optional[str] = None
+    created_by_admin_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id"
+    )
+    created_at: Optional[datetime] = Field(default=None, sa_column=timestamp_column())
 
 
 # =========================================================
@@ -483,11 +514,49 @@ class ShopSettingsRead(SQLModel):
     is_open: bool
     updated_at: Optional[datetime] = None
     reason: Optional[str] = None
+    schedule_override_until: Optional[datetime] = None
 
 
 class ShopUpdate(SQLModel):
     is_open: bool
     reason: Optional[str] = None
+
+
+class ShopClosureCreate(SQLModel):
+    starts_at: datetime
+    ends_at: datetime
+    kind: ClosureKind
+    buffer_before_min: Literal[0, 30, 60] = 0
+    buffer_after_min: Literal[0, 30, 60] = 0
+    message: Optional[str] = None
+
+
+class ShopClosureRead(SQLModel):
+    id: uuid.UUID
+    starts_at: datetime
+    ends_at: datetime
+    effective_starts_at: datetime
+    effective_ends_at: datetime
+    kind: ClosureKind
+    buffer_before_min: int
+    buffer_after_min: int
+    message: Optional[str] = None
+    created_by_admin_id: Optional[uuid.UUID] = None
+    created_at: Optional[datetime] = None
+
+
+class ClosureConflictRead(SQLModel):
+    booking_id: uuid.UUID
+    booking_ref: Optional[str] = None
+    customer_name: str
+    customer_email: str
+    expected_pickup_date: date
+
+
+class ClosurePreviewRead(SQLModel):
+    effective_starts_at: datetime
+    effective_ends_at: datetime
+    conflicts: list[ClosureConflictRead] = []
 
 
 class AdminUserUpdate(SQLModel):

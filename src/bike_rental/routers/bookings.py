@@ -12,6 +12,7 @@ from bike_rental.rate_limit import limit_bookings
 from bike_rental.availability import (
     BLOCKING_STATUSES,
     existing_window,
+    overlapping_full_day_closure,
     window,
     windows_overlap,
 )
@@ -101,6 +102,15 @@ def create_booking(
     by_id = {bike.id: bike for bike in bikes}
     if len(by_id) != len(bike_ids):
         raise HTTPException(status_code=404, detail="One or more bikes were not found")
+
+    closed = overlapping_full_day_closure(
+        session, body.expected_pickup_date, body.rate_selected
+    )
+    if closed is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=closed.message or "The shop is closed on that date",
+        )
 
     new_start, new_end = window(body.expected_pickup_date, body.rate_selected)
     total = Decimal("0")

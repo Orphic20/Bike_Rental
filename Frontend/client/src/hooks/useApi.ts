@@ -6,6 +6,7 @@ import type {
   Booking,
   RateSelected,
   RevenueReport,
+  ShopClosure,
   StaffBooking,
   User,
 } from "@/lib/types";
@@ -304,6 +305,46 @@ export function useAdminAuditLogs(page: number, pageSize = 25): Resource<AuditLo
 
     return () => controller.abort();
   }, [session, page, pageSize, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+/** Every scheduled shop closure. Admin token only. */
+export function useAdminClosures(): Resource<ShopClosure[]> {
+  const { session } = useAuth();
+  const [data, setData] = useState<ShopClosure[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    api
+      .listAdminClosures(controller.signal)
+      .then((rows) => {
+        setData(rows);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [session, nonce]);
 
   return { data, loading, error, reload };
 }

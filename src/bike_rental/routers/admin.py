@@ -3,11 +3,16 @@
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from bike_rental.auth import AdminUser
+from bike_rental.availability import (
+    conflicting_bookings,
+    current_hours_override_until,
+    effective_window,
+)
 from bike_rental.database import SessionDep
 from bike_rental.models import (
     AdminUserUpdate,
@@ -20,6 +25,8 @@ from bike_rental.models import (
     BikeStatus,
     BikeUpdate,
     Booking,
+    ClosureConflictRead,
+    ClosurePreviewRead,
     PaymentMethod,
     PaymentMethodRevenueRead,
     PaymentStatus,
@@ -30,6 +37,9 @@ from bike_rental.models import (
     RevenueReportRead,
     Role,
     RoleName,
+    ShopClosure,
+    ShopClosureCreate,
+    ShopClosureRead,
     ShopSettings,
     ShopSettingsRead,
     ShopStatusLog,
@@ -37,7 +47,7 @@ from bike_rental.models import (
     User,
     UserRead,
 )
-from bike_rental.routers.shop import to_shop_read
+from bike_rental.routers.shop import to_closure_read, to_shop_read
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -318,6 +328,98 @@ def update_admin_user(
     return _to_user_read(target, role)
 
 
+def _to_conflict(booking: Booking, customer: User) -> ClosureConflictRead:
+    return ClosureConflictRead(
+        booking_id=booking.id,
+        booking_ref=booking.booking_ref,
+        customer_name=customer.name,
+        customer_email=customer.email,
+        expected_pickup_date=booking.expected_pickup_date,
+    )
+
+
+def _preview_body(body: ShopClosureCreate, session: Session) -> ClosurePreviewRead:
+    if body.starts_at >= body.ends_at:
+        raise HTTPException(status_code=400, detail="starts_at must be before ends_at")
+    effective_start, effective_end = effective_window(
+        body.starts_at,
+        body.ends_at,
+        body.buffer_before_min,
+        body.buffer_after_min,
+    )
+    conflicts = [
+        _to_conflict(booking, customer)
+        for booking, customer in conflicting_bookings(
+            session, effective_start, effective_end
+        )
+    ]
+    return ClosurePreviewRead(
+        effective_starts_at=effective_start,
+        effective_ends_at=effective_end,
+        conflicts=conflicts,
+    )
+
+
+@router.post("/closures/preview", response_model=ClosurePreviewRead)
+def preview_shop_closure(
+    body: ShopClosureCreate,
+    user: AdminUser,
+    session: SessionDep,
+) -> ClosurePreviewRead:
+    return _preview_body(body, session)
+
+
+@router.get("/closures", response_model=list[ShopClosureRead])
+def list_admin_closures(
+    user: AdminUser,
+    session: SessionDep,
+) -> list[ShopClosureRead]:
+    rows = session.exec(select(ShopClosure).order_by(ShopClosure.starts_at)).all()
+    return [to_closure_read(row) for row in rows]
+
+
+@router.post("/closures", response_model=ShopClosureRead)
+def create_shop_closure(
+    body: ShopClosureCreate,
+    user: AdminUser,
+    session: SessionDep,
+) -> ShopClosureRead:
+    _preview_body(body, session)
+    message = (body.message or "").strip() or None
+    row = ShopClosure(
+        starts_at=body.starts_at,
+        ends_at=body.ends_at,
+        kind=body.kind,
+        buffer_before_min=body.buffer_before_min,
+        buffer_after_min=body.buffer_after_min,
+        message=message,
+        created_by_admin_id=user.id,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return to_closure_read(row)
+
+
+@router.delete("/closures/{closure_id}", status_code=204)
+def delete_shop_closure(
+    closure_id: uuid.UUID,
+    user: AdminUser,
+    session: SessionDep,
+) -> None:
+    row = session.get(ShopClosure, closure_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Closure not found")
+    session.delete(row)
+    session.flush()
+    settings = session.get(ShopSettings, 1)
+    if settings is not None and current_hours_override_until(session) is None:
+        settings.schedule_override_until = None
+        session.add(settings)
+    session.commit()
+    return Response(status_code=204)
+
+
 @router.put("/shop/settings", response_model=ShopSettingsRead)
 def update_shop_settings(
     body: ShopUpdate,
@@ -328,6 +430,8 @@ def update_shop_settings(
     if settings is None:
         raise HTTPException(status_code=404, detail="Shop settings not found")
     settings.is_open = body.is_open
+    if not body.is_open:
+        settings.schedule_override_until = None
     session.add(settings)
     session.flush()
 
@@ -341,6 +445,28 @@ def update_shop_settings(
         log.changed_by_admin_id = user.id
         session.add(log)
 
+    session.commit()
+    session.refresh(settings)
+    return to_shop_read(session, settings)
+
+
+@router.post("/shop/open-anyway", response_model=ShopSettingsRead)
+def open_shop_anyway(
+    user: AdminUser,
+    session: SessionDep,
+) -> ShopSettingsRead:
+    settings = session.get(ShopSettings, 1)
+    if settings is None:
+        raise HTTPException(status_code=404, detail="Shop settings not found")
+    until = current_hours_override_until(session)
+    if until is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No hours closure is in effect",
+        )
+    settings.is_open = True
+    settings.schedule_override_until = until
+    session.add(settings)
     session.commit()
     session.refresh(settings)
     return to_shop_read(session, settings)

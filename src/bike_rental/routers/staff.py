@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import or_, select
 
 from bike_rental.auth import StaffUser
-from bike_rental.availability import span_days
+from bike_rental.availability import counter_closed_detail, span_days
 from bike_rental.database import SessionDep
 from bike_rental.models import (
     Bike,
@@ -99,6 +99,9 @@ def release_booking(
     booking = session.get(Booking, booking_id)
     if booking is None:
         raise HTTPException(status_code=404, detail="Booking not found")
+    closed = counter_closed_detail(session)
+    if closed:
+        raise HTTPException(status_code=409, detail=closed)
     if booking.amount_paid != booking.total_price:
         raise HTTPException(status_code=400, detail="Booking is not fully paid")
 
@@ -156,6 +159,9 @@ def return_rental(
     bike = session.get(Bike, rental.bike_id)
     if bike is None:
         raise HTTPException(status_code=500, detail="Rental has no bike")
+    closed = counter_closed_detail(session)
+    if closed:
+        raise HTTPException(status_code=409, detail=closed)
     if bike.status != BikeStatus.rented:
         raise HTTPException(status_code=400, detail="Bike is not rented")
 

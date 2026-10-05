@@ -6,7 +6,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Query
 from sqlmodel import select
 
-from bike_rental.availability import unavailable_bike_ids
+from bike_rental.availability import overlapping_full_day_closure, unavailable_bike_ids
 from bike_rental.database import SessionDep
 from bike_rental.models import (
     Bike,
@@ -38,7 +38,10 @@ def list_bikes(
 
     taken: set = set()
     if pickup_date is not None:
-        taken = unavailable_bike_ids(session, pickup_date, rate)
+        if overlapping_full_day_closure(session, pickup_date, rate) is not None:
+            taken = {bike.id for bike in bikes}
+        else:
+            taken = unavailable_bike_ids(session, pickup_date, rate)
 
     return [
         BikeRead(
