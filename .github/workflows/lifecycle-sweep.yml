@@ -1,0 +1,34 @@
+name: Rental lifecycle sweep
+
+on:
+  schedule:
+    # GitHub cron is UTC. 11:05 UTC is 7:05 PM Asia/Manila.
+    - cron: "5 11 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: rental-lifecycle-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run no-show and overdue sweep
+        env:
+          AUTOMATION_URL: ${{ secrets.AUTOMATION_URL }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+        run: |
+          test -n "$AUTOMATION_URL"
+          test -n "$AUTOMATION_SECRET"
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --retry 4 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            --max-time 300 \
+            --request POST \
+            --header "X-Cron-Secret: $AUTOMATION_SECRET" \
+            "${AUTOMATION_URL%/}/internal/jobs/lifecycle-sweep"

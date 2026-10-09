@@ -1,15 +1,16 @@
 """Counter workflow: search, release, return, bike status changes."""
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from sqlmodel import or_, select
 
 from bike_rental.auth import StaffUser
-from bike_rental.availability import counter_closed_detail, span_days
+from bike_rental.availability import counter_closed_detail
 from bike_rental.database import SessionDep
+from bike_rental.lifecycle import rental_due_at
 from bike_rental.models import (
     Bike,
     BikeStatus,
@@ -115,16 +116,7 @@ def release_booking(
         raise HTTPException(status_code=400, detail="Booking has no rentals")
 
     now = datetime.now(timezone.utc)
-    last_day = now.date() + timedelta(days=span_days(booking.rate_selected) - 1)
-    due_at = datetime(
-        last_day.year,
-        last_day.month,
-        last_day.day,
-        23,
-        59,
-        59,
-        tzinfo=timezone.utc,
-    )
+    due_at = rental_due_at(now, booking.rate_selected)
 
     for rental, bike in rows:
         if rental.status != RentalStatus.reserved:

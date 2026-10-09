@@ -154,9 +154,9 @@ Use `numeric(10,2)` for all rates, prices, payments, refunds, and late fees. Add
 
 ## 9. Automation
 
-A scheduled no-show process may cancel reservations that pass the configured pickup deadline without release and return their bikes to `available`. Because the user enters only a pickup date, the deadline must use a configured pickup time or shop-opening rule.
+A scheduled lifecycle sweep runs after the 7:00 PM Asia/Manila shop cutoff. It marks eligible unreleased reservations as `no_show`; paid bookings stay paid, GCash bookings pending verification remain reserved for Staff review, and unpaid cash bookings become cancelled. Reserved bikes already retain the `available` inventory status, so releasing the availability hold requires only the rental-status transition.
 
-An overdue process may mark active rentals as `overdue` after `due_at` passes. If late fees are enabled, calculate them according to the configured policy, require exact payment, and avoid charging the same period twice.
+The same sweep marks active rentals as `overdue` after `due_at` passes. Rental due times are 7:00 PM Asia/Manila on the final rental day. Both transitions are idempotent and write system audit entries. If late fees are enabled later, calculate them according to the configured policy, require exact payment, and avoid charging the same period twice.
 
 ## 10. Implementation Status
 
@@ -171,6 +171,6 @@ The HTTP surface currently implemented by the FastAPI service in `src/bike_renta
 | `GET /bookings` | Every booking the caller owns, newest first. | bearer |
 | `GET /bookings/{booking_id}` | A single owned booking. | bearer |
 
-The `payments`, `staff`, `admin`, and `extensions_swaps` routers are registered but expose no endpoints yet. The Staff and Admin screens in the frontend remain unconnected prototypes until those land.
+Payments, Staff operations, Admin management/reporting, closures, uploads, and lifecycle jobs are implemented and connected where applicable. The `extensions_swaps` router remains the primary registered router without endpoints.
 
 Authentication is delegated to Supabase. The frontend obtains a session through `@supabase/supabase-js` and sends the access token as a bearer token; the backend verifies it against the project's JWKS endpoint using ES256.

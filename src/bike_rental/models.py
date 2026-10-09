@@ -486,6 +486,20 @@ class AuditLogPageRead(SQLModel):
     page_size: int
 
 
+class LifecycleTransitionRead(SQLModel):
+    matched: int
+    updated: int
+    rental_ids: list[uuid.UUID] = []
+
+
+class LifecycleSweepRead(SQLModel):
+    dry_run: bool
+    run_at: datetime
+    skipped_pending_verification: int
+    no_show: LifecycleTransitionRead
+    overdue: LifecycleTransitionRead
+
+
 class StaffBookingRead(BookingRead):
     customer_name: str
     customer_email: str

@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "python-multipart>=0.0.32",
     "sqlmodel>=0.0.39",
+    "tzdata>=2026.5",
     "uvicorn[standard]>=0.52.3",
 ]
 
@@ -25,3 +26,8 @@ bike-rental = "bike_rental:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
