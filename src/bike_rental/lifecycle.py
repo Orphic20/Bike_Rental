@@ -1,6 +1,7 @@
 """Idempotent rental lifecycle transitions shared by manual and scheduled jobs."""
 
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -15,12 +16,16 @@ from bike_rental.models import (
     PaymentMethod,
     PaymentStatus,
     RateSelected,
+    ReceiptPurgeRead,
     Rental,
     RentalStatus,
 )
+from bike_rental.routers.uploads import delete_cloudinary_image
 
 SHOP_TIME_ZONE = ZoneInfo("Asia/Manila")
 SHOP_CLOSING_TIME = time(19, 0)
+RECEIPT_FOLDER = "munoz/receipts"
+RECEIPT_RETENTION = timedelta(days=30)
 
 NO_SHOW_PAYMENT_STATUSES = (
     PaymentStatus.unpaid_pending_pickup,
@@ -61,11 +66,80 @@ def _audit(
     )
 
 
+def _purge_stale_gcash_receipts(
+    session: Session,
+    *,
+    run_at: datetime,
+    dry_run: bool,
+    delete_receipt: Callable[..., bool],
+) -> ReceiptPurgeRead:
+    """Remove Cloudinary GCash images older than 30 days; keep the reference number."""
+    cutoff = run_at - RECEIPT_RETENTION
+    rows = session.exec(
+        select(Booking)
+        .where(Booking.payment_method == PaymentMethod.gcash)
+        .where(Booking.gcash_receipt_url.is_not(None))
+        .where(Booking.created_at.is_not(None))
+        .where(Booking.created_at <= cutoff)
+        .order_by(Booking.id)
+        .with_for_update()
+    ).all()
+
+    matched_ids: list[uuid.UUID] = []
+    skipped_pending = 0
+    skipped_failed = 0
+    updated = 0
+
+    for booking in rows:
+        if booking.created_at is None:
+            continue
+        if ensure_aware(booking.created_at) > cutoff:
+            continue
+        if not booking.gcash_receipt_url:
+            continue
+        if booking.payment_status == PaymentStatus.pending_verification:
+            skipped_pending += 1
+            continue
+        matched_ids.append(booking.id)
+        if dry_run:
+            continue
+        receipt_url = booking.gcash_receipt_url
+        if not delete_receipt(receipt_url, folder=RECEIPT_FOLDER):
+            skipped_failed += 1
+            continue
+        booking.gcash_receipt_url = None
+        booking.updated_at = run_at
+        session.add(booking)
+        session.add(
+            AuditLog(
+                actor_id=None,
+                action="booking.receipt_purged",
+                target_table="bookings",
+                target_id=booking.id,
+                details={
+                    "booking_ref": booking.booking_ref,
+                    "created_at": ensure_aware(booking.created_at).isoformat(),
+                    "gcash_ref_no": booking.gcash_ref_no,
+                },
+            )
+        )
+        updated += 1
+
+    return ReceiptPurgeRead(
+        matched=len(matched_ids),
+        updated=updated,
+        skipped_pending_verification=skipped_pending,
+        skipped_failed=skipped_failed,
+        booking_ids=matched_ids,
+    )
+
+
 def run_lifecycle_sweep(
     session: Session,
     *,
     now: datetime | None = None,
     dry_run: bool = False,
+    delete_receipt: Callable[..., bool] | None = None,
 ) -> LifecycleSweepRead:
     """Mark pickup no-shows and overdue rentals in one race-safe transaction."""
     run_at = ensure_aware(now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -165,6 +239,14 @@ def run_lifecycle_sweep(
             )
             overdue_updated += 1
 
+    receipts = _purge_stale_gcash_receipts(
+        session,
+        run_at=run_at,
+        dry_run=dry_run,
+        delete_receipt=delete_receipt or delete_cloudinary_image,
+    )
+
+    if not dry_run and (no_show_updated or overdue_updated or receipts.updated):
         session.commit()
 
     return LifecycleSweepRead(
@@ -181,4 +263,5 @@ def run_lifecycle_sweep(
             updated=overdue_updated,
             rental_ids=overdue_ids,
         ),
+        receipts=receipts,
     )

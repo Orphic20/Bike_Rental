@@ -492,12 +492,21 @@ class LifecycleTransitionRead(SQLModel):
     rental_ids: list[uuid.UUID] = []
 
 
+class ReceiptPurgeRead(SQLModel):
+    matched: int
+    updated: int
+    skipped_pending_verification: int = 0
+    skipped_failed: int = 0
+    booking_ids: list[uuid.UUID] = []
+
+
 class LifecycleSweepRead(SQLModel):
     dry_run: bool
     run_at: datetime
     skipped_pending_verification: int
     no_show: LifecycleTransitionRead
     overdue: LifecycleTransitionRead
+    receipts: ReceiptPurgeRead
 
 
 class StaffBookingRead(BookingRead):

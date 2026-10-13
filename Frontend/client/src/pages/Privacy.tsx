@@ -5,7 +5,7 @@ export default function Privacy() {
         <span className="eyebrow-rule" /> Muñoz Bike Rental
       </p>
       <h1>Privacy policy</h1>
-      <p>Last updated: 23 September 2026</p>
+      <p>Last updated: 13 October 2026</p>
       <p>
         This policy explains what Muñoz Bike Rental (“we”, the shop in Bagong Sikat,
         Science City of Muñoz) collects when you use this site or sign in with
@@ -42,8 +42,9 @@ export default function Privacy() {
       </ul>
       <h2>How long we keep it</h2>
       <p>
-        Account and booking records stay while the shop uses this system. Email us
-        to ask for a copy or to have your account closed.
+        Account and booking records stay while the shop uses this system. GCash
+        receipt images are deleted after 30 days. The booking and GCash reference
+        number stay. Email us to ask for a copy or to have your account closed.
       </p>
       <p>
         <a href="/">Back to Muñoz Bike Rental</a>

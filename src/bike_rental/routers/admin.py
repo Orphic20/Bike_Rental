@@ -48,6 +48,7 @@ from bike_rental.models import (
     UserRead,
 )
 from bike_rental.routers.shop import to_closure_read, to_shop_read
+from bike_rental.routers.uploads import delete_cloudinary_image
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -222,6 +223,7 @@ def update_bike(
         raise HTTPException(status_code=400, detail="Cannot set a bike as rented")
 
     data = body.model_dump(exclude_unset=True)
+    previous_image_url = bike.image_url
     if "name" in data:
         name = (data["name"] or "").strip()
         if not name:
@@ -256,6 +258,12 @@ def update_bike(
         setattr(bike, key, value)
     session.add(bike)
     session.commit()
+    if (
+        "image_url" in data
+        and data["image_url"] != previous_image_url
+        and previous_image_url
+    ):
+        delete_cloudinary_image(previous_image_url, folder="munoz/bikes")
     session.refresh(bike)
     return _to_bike_read(bike)
 

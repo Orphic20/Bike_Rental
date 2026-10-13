@@ -93,8 +93,9 @@ Rentals are due at 7:00 PM Asia/Manila on their final rental day. At 7:05 PM,
 
 - mark unreleased eligible reservations as `no_show`;
 - mark past-due `active` rentals as `overdue`;
-- keep paid no-shows paid and skip GCash bookings pending verification; and
-- write `rental.no_show` and `rental.overdue` audit entries.
+- keep paid no-shows paid and skip GCash bookings pending verification;
+- delete GCash receipt images older than 30 days (reference numbers stay); and
+- write `rental.no_show`, `rental.overdue`, and `booking.receipt_purged` audit entries.
 
 Apply the Supabase migrations before enabling the workflow. Then configure:
 

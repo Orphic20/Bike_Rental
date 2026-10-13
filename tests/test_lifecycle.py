@@ -45,6 +45,8 @@ class FakeSession:
         self.commits = 0
 
     def exec(self, _statement):
+        if not self.result_sets:
+            return FakeResult([])
         return FakeResult(self.result_sets.pop(0))
 
     def add(self, value):
@@ -54,10 +56,19 @@ class FakeSession:
         self.commits += 1
 
 
+RECEIPT_URL = (
+    "https://res.cloudinary.com/demo/image/upload/"
+    "v1720000000/munoz/receipts/old-slip.webp"
+)
+
+
 def make_booking(
     *,
     payment_method=PaymentMethod.cash,
     payment_status=PaymentStatus.unpaid_pending_pickup,
+    gcash_receipt_url=None,
+    gcash_ref_no=None,
+    created_at=None,
 ) -> Booking:
     return Booking(
         id=uuid.uuid4(),
@@ -70,8 +81,11 @@ def make_booking(
         ),
         payment_method=payment_method,
         payment_status=payment_status,
+        gcash_receipt_url=gcash_receipt_url,
+        gcash_ref_no=gcash_ref_no,
         expected_pickup_date=date(2026, 10, 5),
         rate_selected=RateSelected.daily,
+        created_at=created_at,
     )
 
 
@@ -199,3 +213,104 @@ def test_cron_secret_guard(monkeypatch):
     assert invalid.value.status_code == 401
 
     assert require_cron_secret("expected") is None
+
+
+def test_old_gcash_receipt_is_deleted_and_reference_is_kept():
+    booking = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.paid,
+        gcash_receipt_url=RECEIPT_URL,
+        gcash_ref_no="REF-30D",
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+    deleted = []
+
+    def delete_receipt(image_url, *, folder):
+        deleted.append((image_url, folder))
+        return True
+
+    session = FakeSession([], [], [booking])
+    result = run_lifecycle_sweep(
+        session,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        delete_receipt=delete_receipt,
+    )
+
+    assert booking.gcash_receipt_url is None
+    assert booking.gcash_ref_no == "REF-30D"
+    assert result.receipts.updated == 1
+    assert result.receipts.booking_ids == [booking.id]
+    assert deleted == [(RECEIPT_URL, "munoz/receipts")]
+    assert session.commits == 1
+    assert [
+        item.action for item in session.added if isinstance(item, AuditLog)
+    ] == ["booking.receipt_purged"]
+
+
+def test_recent_and_pending_gcash_receipts_are_kept():
+    recent = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.paid,
+        gcash_receipt_url=RECEIPT_URL,
+        gcash_ref_no="REF-NEW",
+        created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    pending = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.pending_verification,
+        gcash_receipt_url=RECEIPT_URL,
+        gcash_ref_no="REF-PEND",
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+    deleted = []
+
+    def delete_receipt(image_url, *, folder):
+        deleted.append((image_url, folder))
+        return True
+
+    session = FakeSession([], [], [recent, pending])
+    result = run_lifecycle_sweep(
+        session,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        delete_receipt=delete_receipt,
+    )
+
+    assert recent.gcash_receipt_url == RECEIPT_URL
+    assert pending.gcash_receipt_url == RECEIPT_URL
+    assert result.receipts.matched == 0
+    assert result.receipts.skipped_pending_verification == 1
+    assert deleted == []
+    assert session.commits == 0
+
+
+def test_receipt_purge_dry_run_and_failed_delete_keep_the_url():
+    booking = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.paid,
+        gcash_receipt_url=RECEIPT_URL,
+        gcash_ref_no="REF-KEEP",
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+
+    dry = FakeSession([], [], [booking])
+    dry_result = run_lifecycle_sweep(
+        dry,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        dry_run=True,
+        delete_receipt=lambda image_url, *, folder: True,
+    )
+    assert dry_result.receipts.matched == 1
+    assert dry_result.receipts.updated == 0
+    assert booking.gcash_receipt_url == RECEIPT_URL
+    assert dry.commits == 0
+
+    failed = FakeSession([], [], [booking])
+    failed_result = run_lifecycle_sweep(
+        failed,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        delete_receipt=lambda image_url, *, folder: False,
+    )
+    assert failed_result.receipts.skipped_failed == 1
+    assert failed_result.receipts.updated == 0
+    assert booking.gcash_receipt_url == RECEIPT_URL
+    assert failed.commits == 0

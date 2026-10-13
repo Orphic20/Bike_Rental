@@ -6,11 +6,11 @@
   Admin inventory, revenue, reservation, and audit views run on FastAPI.
 */
 import { AuthDialog } from "@/components/AuthDialog";
-import foldingBike from "@/assets/folding-bike.png";
-import japaneseBike from "@/assets/japanese-bike.png";
-import lingapRouteCard from "@/assets/lingap_routecard.jpg";
-import mountainBike from "@/assets/mountain-bike.png";
-import munozBikeFront from "@/assets/munoz-bike-front.png";
+import foldingBike from "@/assets/folding-bike.webp";
+import japaneseBike from "@/assets/japanese-bike.webp";
+import lingapRouteCard from "@/assets/lingap_routecard.webp";
+import mountainBike from "@/assets/mountain-bike.webp";
+import munozBikeFront from "@/assets/munoz-bike-front.webp";
 import { BikeArt, BrandMark } from "@/components/Artwork";
 import { useAuth } from "@/contexts/AuthContext";
 import {
