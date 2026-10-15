@@ -2379,6 +2379,9 @@ function StaffView() {
           <button className="sidebar-link active" type="button">
             <ClipboardCheck size={17} /> Swap requests
           </button>
+          <a className="sidebar-link" href="/staff/extensions">
+            <Clock3 size={17} /> Extension requests
+          </a>
         </aside>
         <main className="product-main">
           <div className="page-heading ops-heading">
@@ -2456,6 +2459,9 @@ function StaffView() {
         >
           <ClipboardCheck size={17} /> Swap requests
         </button>
+        <a className="sidebar-link" href="/staff/extensions">
+          <Clock3 size={17} /> Extension requests
+        </a>
       </aside>
       <main className="product-main">
         <div className="page-heading ops-heading">

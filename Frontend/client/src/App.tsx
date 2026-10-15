@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Extension from "@/pages/Extension";
 import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/Privacy";
+import StaffExtensions from "@/pages/StaffExtensions";
 import Terms from "@/pages/Terms";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -16,6 +17,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/extensions/:rentalId" component={Extension} />
+      <Route path="/staff/extensions" component={StaffExtensions} />
       <Route path="/privacy-policy" component={Privacy} />
       <Route path="/privacy-policy/" component={Privacy} />
       <Route path="/terms" component={Terms} />
