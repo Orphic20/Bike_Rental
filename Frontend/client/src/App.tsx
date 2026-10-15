@@ -2,6 +2,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import Extension from "@/pages/Extension";
 import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
@@ -14,6 +15,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/extensions/:rentalId" component={Extension} />
       <Route path="/privacy-policy" component={Privacy} />
       <Route path="/privacy-policy/" component={Privacy} />
       <Route path="/terms" component={Terms} />

@@ -1666,20 +1666,22 @@ function CustomerView({
                       </div>
                     </div>
                   </div>
-                  <label className={waiver ? "check-row checked" : "check-row"}>
-                    <input
-                      type="checkbox"
-                      checked={waiver}
-                      onChange={(event) => setWaiver(event.target.checked)}
-                    />
-                    <span className="fake-check">{waiver && <Check size={12} />}</span>
+                  <div className={waiver ? "check-row checked" : "check-row"}>
+                    <label className="waiver-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={waiver}
+                        onChange={(event) => setWaiver(event.target.checked)}
+                        aria-label="Accept the Liability Waiver and Terms of Service"
+                      />
+                      <span className="fake-check">{waiver && <Check size={12} />}</span>
+                    </label>
                     <span>
                       I agree to the{" "}
                       <a
                         href="/terms/#liability-waiver"
                         target="_blank"
                         rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
                       >
                         Liability Waiver
                       </a>{" "}
@@ -1688,13 +1690,12 @@ function CustomerView({
                         href="/terms/"
                         target="_blank"
                         rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
                       >
                         Terms of Service
                       </a>{" "}
                       (v{WAIVER_VERSION}).
                     </span>
-                  </label>
+                  </div>
                 </div>
               )}
 
@@ -1962,77 +1963,14 @@ function CancelRideButton({
 
 function RentalPhaseFiveActions({
   rental,
-  onDone,
 }: {
   rental: Rental;
   onDone: () => void;
 }) {
-  const [mode, setMode] = useState<"extension" | "swap" | null>(null);
-  const [rate, setRate] = useState<RateSelected>("daily");
-  const [payment, setPayment] = useState<PaymentMethod>("cash");
-  const [reference, setReference] = useState("");
-  const [receiptUrl, setReceiptUrl] = useState("");
-  const [receiptName, setReceiptName] = useState("");
+  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const canAct = rental.status === "active";
-  const price = rate === "weekly" ? rental.bike_weekly_rate : rental.bike_daily_rate;
-
-  const uploadReceipt = async (file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) {
-      toast.warning("Use an image under 8 MB");
-      return;
-    }
-    setUploading(true);
-    try {
-      const result = await api.uploadReceipt(file);
-      setReceiptUrl(result.url);
-      setReceiptName(file.name);
-    } catch (cause) {
-      toast.error(cause instanceof ApiError ? cause.message : "Receipt upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const submitExtension = async () => {
-    if (!rental.due_at) {
-      toast.warning("Staff still need to release this bike before it can be extended.");
-      return;
-    }
-    if (!price) {
-      toast.warning("This bike has no weekly rate");
-      return;
-    }
-    if (payment === "gcash" && (!reference.trim() || !receiptUrl)) {
-      toast.warning("Add the GCash reference and receipt");
-      return;
-    }
-    setBusy(true);
-    try {
-      const extension = await api.createExtension(rental.id, {
-        rate_selected: rate,
-        payment_method: payment,
-        ...(payment === "gcash"
-          ? {
-              gcash_ref_no: reference.trim(),
-              gcash_receipt_url: receiptUrl,
-            }
-          : {}),
-      });
-      toast.success("Extension requested", {
-        description: `${formatPeso(extension.total_price)} must be paid exactly before staff approval.`,
-      });
-      setMode(null);
-      onDone();
-    } catch (cause) {
-      toast.error(cause instanceof ApiError ? cause.message : "Could not request extension.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const submitSwap = async () => {
     if (reason.trim().length < 3) {
@@ -2043,7 +1981,7 @@ function RentalPhaseFiveActions({
     try {
       await api.createSwapRequest(rental.id, reason.trim());
       toast.success("Swap request sent");
-      setMode(null);
+      setOpen(false);
       setReason("");
     } catch (cause) {
       toast.error(cause instanceof ApiError ? cause.message : "Could not request swap.");
@@ -2056,77 +1994,29 @@ function RentalPhaseFiveActions({
   return (
     <>
       <div className="rental-inline-actions">
-        <button className="secondary-button" type="button" onClick={() => setMode("extension")}>
+        <a className="secondary-button" href={`/extensions/${rental.id}`}>
           Extend rent <ArrowUpRight size={14} />
-        </button>
-        <button className="ghost-action" type="button" onClick={() => setMode("swap")}>
+        </a>
+        <button className="ghost-action" type="button" onClick={() => setOpen(true)}>
           Request a swap
         </button>
       </div>
-      {mode && (
+      {open && (
         <div className="booking-date-modal-backdrop" role="presentation">
           <section className="booking-date-modal phase-five-modal" role="dialog" aria-modal="true">
-            <button className="booking-date-close" type="button" onClick={() => setMode(null)}>
+            <button className="booking-date-close" type="button" onClick={() => setOpen(false)}>
               <X size={15} />
             </button>
             <span className="micro-label">{rental.bike_name ?? "Active rental"}</span>
-            <h2>{mode === "extension" ? "Extend this ride." : "Request a swap."}</h2>
-            {mode === "extension" ? (
-              <>
-                <p>The bike stays reserved only after exact payment and staff approval.</p>
-                <div className="form-grid compact-form">
-                  <label className="field-block">
-                    <span>Extension period</span>
-                    <select value={rate} onChange={(event) => setRate(event.target.value as RateSelected)}>
-                      <option value="daily">One day</option>
-                      <option value="weekly" disabled={!rental.bike_weekly_rate}>One week</option>
-                    </select>
-                  </label>
-                  <label className="field-block">
-                    <span>Payment</span>
-                    <select value={payment} onChange={(event) => setPayment(event.target.value as PaymentMethod)}>
-                      <option value="cash">Cash</option>
-                      <option value="gcash">GCash</option>
-                    </select>
-                  </label>
-                </div>
-                <p className="phase-five-price">Exact total: <strong>{price ? formatPeso(price) : "Unavailable"}</strong></p>
-                {payment === "gcash" && (
-                  <div className="form-grid compact-form">
-                    <label className="field-block">
-                      <span>GCash reference</span>
-                      <input value={reference} onChange={(event) => setReference(event.target.value)} />
-                    </label>
-                    <label className="field-block upload-proof">
-                      <span>{uploading ? "Uploading…" : receiptName || "Upload receipt"}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={uploading}
-                        onChange={(event) => {
-                          void uploadReceipt(event.target.files?.[0]);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
-                <button className="primary-button full-button" type="button" disabled={busy || uploading} onClick={submitExtension}>
-                  {busy ? "Sending…" : "Request extension"}
-                </button>
-              </>
-            ) : (
-              <>
-                <p>Staff will choose an available replacement bike at the counter.</p>
-                <label className="field-block phase-five-reason">
-                  <span>Reason</span>
-                  <textarea maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
-                </label>
-                <button className="primary-button full-button" type="button" disabled={busy} onClick={submitSwap}>
-                  {busy ? "Sending…" : "Send swap request"}
-                </button>
-              </>
-            )}
+            <h2>Request a swap.</h2>
+            <p>Staff will choose an available replacement bike at the counter.</p>
+            <label className="field-block phase-five-reason">
+              <span>Reason</span>
+              <textarea maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
+            </label>
+            <button className="primary-button full-button" type="button" disabled={busy} onClick={submitSwap}>
+              {busy ? "Sending…" : "Send swap request"}
+            </button>
           </section>
         </div>
       )}

@@ -429,8 +429,9 @@ button:not(:disabled), a { cursor: pointer; }
 .select-field svg:last-child { margin-left: auto; color: #85938a; }
 .select-field:hover { border-color: #9db29f; }
 .field-note { display: flex; align-items: center; gap: 5px; color: #c06a55; font-size: 10px; margin-top: 7px; }
-.check-row { display: flex; align-items: flex-start; gap: 9px; color: #78847c; font-size: 11px; line-height: 1.45; margin-top: 18px; cursor: pointer; }
+.check-row { display: flex; align-items: flex-start; gap: 9px; color: #78847c; font-size: 11px; line-height: 1.45; margin-top: 18px; }
 .check-row input { position: absolute; opacity: 0; pointer-events: none; }
+.waiver-checkbox { cursor: pointer; }
 .fake-check { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1px solid #bdc8ba; color: white; background: transparent; margin-top: -1px; }
 .check-row.checked .fake-check { border-color: #6e9270; background: #6e9270; }
 .check-row.checked { color: #4c6558; }
@@ -505,6 +506,7 @@ button:not(:disabled), a { cursor: pointer; }
 .phase-five-price { margin: 18px 0 !important; color: #304a41 !important; }
 .phase-five-reason { display: block; margin: 22px 0 18px; }
 .phase-five-modal .full-button { width: 100%; justify-content: center; margin-top: 18px; }
+.rental-inline-actions a { text-decoration: none; }
 .swap-request-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .swap-request-grid .rides-list-card > h2 { margin: 6px 0; font-family: "Fraunces", Georgia, serif; color: #304a41; }
 .swap-request-grid .rides-list-card > p { min-height: 42px; color: #74827a; font-size: 12px; line-height: 1.55; }
@@ -793,6 +795,28 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
 .privacy-page h2 { color: #263b38; font-family: "Fraunces", Georgia, serif; font-size: 22px; margin: 32px 0 10px; }
 .privacy-page p, .privacy-page li { color: #5d6b63; font-size: 15px; line-height: 1.65; }
 .privacy-page a { color: #c84c3d; }
+.extension-page { min-height: 100vh; background: #f4f2e9; color: #304a41; }
+.extension-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 7vw; border-bottom: 1px solid #dfe1d8; background: #faf8f1; }
+.extension-header a { text-decoration: none; }
+.extension-header .quiet-link { display: inline-flex; align-items: center; gap: 6px; color: #8d4e43; font-size: 11px; font-weight: 700; }
+.extension-shell { width: min(1120px, 86vw); margin: 0 auto; padding: 70px 0 90px; display: grid; grid-template-columns: .9fr 1.1fr; gap: clamp(40px, 7vw, 100px); align-items: start; }
+.extension-intro h1, .extension-card h1 { margin: 14px 0 18px; font-family: "Fraunces", Georgia, serif; font-size: clamp(42px, 6vw, 72px); line-height: .94; letter-spacing: -.065em; }
+.extension-intro > p, .extension-card > p { color: #738078; font-size: 13px; line-height: 1.7; }
+.extension-bike { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 18px; margin-top: 38px; padding-top: 28px; border-top: 1px solid #d9ddd4; }
+.extension-bike .bike-art, .extension-bike .bike-art img { width: 120px; height: 100px; object-fit: cover; }
+.extension-bike h2 { margin: 5px 0; font-family: "Fraunces", Georgia, serif; font-size: 28px; }
+.extension-bike p { margin: 0; color: #7c8981; font-size: 11px; }
+.extension-card { padding: clamp(28px, 4vw, 46px); border: 1px solid #dedfd6; background: #fbfaf4; box-shadow: 0 22px 55px rgba(41, 63, 56, .09); }
+.extension-form-grid { margin-top: 26px; }
+.extension-card select, .extension-card input { width: 100%; border: 1px solid #d7ddd4; background: #fffef9; color: #304a41; padding: 12px; font: inherit; }
+.extension-total { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 30px; padding: 22px 0; border-top: 1px solid #d9ddd4; border-bottom: 1px solid #d9ddd4; }
+.extension-total span { color: #78867e; font-size: 11px; }
+.extension-total strong { color: #bf4a3b; font-family: "Fraunces", Georgia, serif; font-size: 38px; }
+.extension-note { margin: 18px 0 0; font-size: 11px !important; }
+.extension-confirmed { grid-column: 1 / -1; max-width: 620px; margin: 0 auto; text-align: center; }
+.extension-confirmed > svg { color: #6e9270; margin-bottom: 20px; }
+.extension-confirmed .primary-button { display: inline-flex; margin-top: 18px; text-decoration: none; }
+@media (max-width: 760px) { .extension-header { padding: 18px 20px; }.extension-header .app-brand > span:last-child { display: none; }.extension-shell { width: min(100% - 32px, 560px); padding: 42px 0 70px; grid-template-columns: 1fr; gap: 30px; }.extension-intro h1, .extension-card h1 { font-size: 44px; }.extension-bike { grid-template-columns: 90px 1fr; }.extension-bike .bike-art, .extension-bike .bike-art img { width: 90px; height: 78px; } }
 .landing-page { background: #f7f4ed; }
 .landing-hero { max-width: 1600px; margin: 0 auto; padding: 72px 7vw 84px; display: grid; grid-template-columns: .92fr 1.08fr; gap: clamp(50px, 8vw, 130px); align-items: center; }
 .landing-hero-copy { padding-bottom: 6px; }
