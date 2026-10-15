@@ -2258,7 +2258,7 @@ function auditActionLabel(action: string): string {
 
 function StaffView() {
   const { profile } = useAuth();
-  const [opsScreen, setOpsScreen] = useState<"queue" | "swaps">("queue");
+  const [opsScreen, setOpsScreen] = useState<"queue" | "swaps" | "extensions">("queue");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "today" | "outstanding" | "pending">("today");
@@ -2336,6 +2336,135 @@ function StaffView() {
       .map((rental) => rental.bike_name ?? "Bike")
       .join(", ") || "No bikes";
 
+  if (opsScreen === "extensions") {
+    const extensions = (queue.data ?? []).filter(
+      (row) => row.booking_type === "extension",
+    );
+    const rentalById = new Map(
+      (queue.data ?? [])
+        .flatMap((booking) => booking.rentals)
+        .map((rental) => [rental.id, rental] as const),
+    );
+
+    return (
+      <div className="product-layout ops-layout">
+        <aside className="app-sidebar ops-sidebar">
+          <div className="ops-profile">
+            <span className="avatar staff-avatar">{initials || "ST"}</span>
+            <div>
+              <strong>{profile?.name || "Counter"}</strong>
+              <small>{profile?.role === "admin" ? "Admin" : "Staff"} · Bagong Sikat</small>
+            </div>
+          </div>
+          <div className="sidebar-nav-label">Operations</div>
+          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("queue")}>
+            <LayoutDashboard size={17} /> Today&apos;s queue
+          </button>
+          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("swaps")}>
+            <ClipboardCheck size={17} /> Swap requests
+          </button>
+          <button className="sidebar-link active" type="button">
+            <Clock3 size={17} /> Extension requests
+          </button>
+        </aside>
+        <main className="product-main">
+          <div className="page-heading ops-heading">
+            <div>
+              <span className="micro-label">Staff decisions</span>
+              <h1>Extension requests.</h1>
+              <p>Take exact payment, verify GCash, then approve the new due time.</p>
+            </div>
+          </div>
+          {queue.error && <AsyncNote tone="error" message={queue.error} onRetry={queue.reload} />}
+          {queue.loading && !queue.data && <AsyncNote message="Loading extension requests…" />}
+          {!queue.loading && extensions.length === 0 && <AsyncNote message="No extension requests yet." />}
+          <div className="staff-extension-grid">
+            {extensions.map((row) => {
+              const rental = row.rental_id ? rentalById.get(row.rental_id) : undefined;
+              const rowBusy = busy && selectedId === row.id;
+              const perform = async (label: string, action: () => Promise<unknown>) => {
+                setSelectedId(row.id);
+                await run(label, action);
+              };
+              return (
+                <section className="staff-extension-card" key={row.id}>
+                  <div className="card-title-row">
+                    <div>
+                      <span className="micro-label">{row.booking_ref ?? row.id.slice(0, 8)}</span>
+                      <h2>{row.customer_name}</h2>
+                      <p className="handoff-email">{row.customer_email}</p>
+                    </div>
+                    <Pill tone={row.extension_applied_at ? "paid" : "neutral"}>
+                      {row.extension_applied_at
+                        ? "Approved"
+                        : row.payment_status === "paid"
+                          ? "Ready for approval"
+                          : PAYMENT_STATUS_LABELS[row.payment_status]}
+                    </Pill>
+                  </div>
+                  <div className="staff-extension-bike">
+                    <BikeArt
+                      type={rental?.bike_type ?? null}
+                      imageUrl={rental?.bike_image_url}
+                      alt={rental?.bike_name ?? "Rental bike"}
+                    />
+                    <div>
+                      <span className="bike-kind">
+                        {rental?.bike_type ? BIKE_TYPE_LABELS[rental.bike_type] : "Rental"}
+                      </span>
+                      <h3>{rental?.bike_name ?? "Bike"}</h3>
+                      <p>Current due: {formatDateTimeLabel(rental?.due_at ?? null) ?? "—"}</p>
+                    </div>
+                  </div>
+                  <dl className="staff-extension-details">
+                    <div><dt>Period</dt><dd>{row.rate_selected === "weekly" ? "One week" : "One day"}</dd></div>
+                    <div><dt>Exact total</dt><dd>{formatPeso(row.total_price)}</dd></div>
+                    <div><dt>Payment</dt><dd>{row.payment_method === "gcash" ? "GCash" : "Cash"}</dd></div>
+                  </dl>
+                  {row.gcash_ref_no && <p className="handoff-meta">GCash ref: {row.gcash_ref_no}</p>}
+                  {row.gcash_receipt_url && (
+                    <a href={row.gcash_receipt_url} target="_blank" rel="noreferrer">
+                      <img className="staff-extension-receipt" src={row.gcash_receipt_url} alt="GCash receipt" />
+                    </a>
+                  )}
+                  <div className="staff-extension-actions">
+                    {row.payment_method === "cash" &&
+                      row.payment_status === "unpaid_pending_pickup" && (
+                        <button className="primary-button" type="button" disabled={rowBusy} onClick={() => void perform("Cash recorded", () => api.recordCash(row.id))}>
+                          Record exact cash
+                        </button>
+                      )}
+                    {row.payment_method === "gcash" &&
+                      row.payment_status === "pending_verification" && (
+                        <>
+                          <button className="primary-button" type="button" disabled={rowBusy} onClick={() => void perform("GCash accepted", () => api.verifyGcash(row.id, "accepted"))}>
+                            Accept GCash
+                          </button>
+                          <button className="ghost-action" type="button" disabled={rowBusy} onClick={() => void perform("GCash rejected", () => api.verifyGcash(row.id, "rejected"))}>
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    {row.payment_status === "paid" && !row.extension_applied_at && (
+                      <button className="primary-button" type="button" disabled={rowBusy} onClick={() => void perform("Extension approved", () => api.approveExtension(row.id))}>
+                        Approve extension <ArrowUpRight size={15} />
+                      </button>
+                    )}
+                    {row.extension_applied_at && (
+                      <span className="extension-approved-note">
+                        <CheckCircle2 size={16} /> Due time updated
+                      </span>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (opsScreen === "swaps") {
     const pendingSwaps = (swaps.data ?? []).filter((request) => request.status === "pending");
     const availableReplacements = (replacementBikes.data ?? []).filter(
@@ -2379,9 +2508,9 @@ function StaffView() {
           <button className="sidebar-link active" type="button">
             <ClipboardCheck size={17} /> Swap requests
           </button>
-          <a className="sidebar-link" href="/staff/extensions">
+          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("extensions")}>
             <Clock3 size={17} /> Extension requests
-          </a>
+          </button>
         </aside>
         <main className="product-main">
           <div className="page-heading ops-heading">
@@ -2459,9 +2588,9 @@ function StaffView() {
         >
           <ClipboardCheck size={17} /> Swap requests
         </button>
-        <a className="sidebar-link" href="/staff/extensions">
+        <button className="sidebar-link" type="button" onClick={() => setOpsScreen("extensions")}>
           <Clock3 size={17} /> Extension requests
-        </a>
+        </button>
       </aside>
       <main className="product-main">
         <div className="page-heading ops-heading">

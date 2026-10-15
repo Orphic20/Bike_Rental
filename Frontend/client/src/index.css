@@ -426,6 +426,7 @@ button:not(:disabled), a { cursor: pointer; }
 .field-block.full { grid-column: 1 / -1; }
 .field-block label { display: block; color: #79867e; font-size: 10px; font-weight: 700; margin-bottom: 7px; }
 .select-field, .input-field { width: 100%; min-height: 43px; display: flex; align-items: center; gap: 8px; border: 1px solid #d7dcd4; background: #fbfaf5; color: #3f574e; padding: 0 12px; text-align: left; font-size: 12px; }
+.input-field span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
 .select-field svg:last-child { margin-left: auto; color: #85938a; }
 .select-field:hover { border-color: #9db29f; }
 .field-note { display: flex; align-items: center; gap: 5px; color: #c06a55; font-size: 10px; margin-top: 7px; }
@@ -510,7 +511,6 @@ button:not(:disabled), a { cursor: pointer; }
 .swap-request-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .swap-request-grid .rides-list-card > h2 { margin: 6px 0; font-family: "Fraunces", Georgia, serif; color: #304a41; }
 .swap-request-grid .rides-list-card > p { min-height: 42px; color: #74827a; font-size: 12px; line-height: 1.55; }
-.staff-extensions-page .ops-sidebar .app-brand { margin: 0 10px 36px; text-decoration: none; }
 .staff-extension-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
 .staff-extension-card { min-width: 0; padding: 24px; border: 1px solid #e4e2d7; background: #fbf9f3; box-shadow: 0 18px 35px rgba(46,68,58,.045); }
 .staff-extension-card .card-title-row { min-width: 0; gap: 12px; }
@@ -564,7 +564,7 @@ button:not(:disabled), a { cursor: pointer; }
 .ops-tab { border: 1px solid #d8ded5; background: transparent; color: #617268; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
 .ops-tab.active { background: #304a41; color: #fffaf2; border-color: #304a41; }
 button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-bottom: 1px solid #e4e2d7; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.handoff-email, .handoff-meta { margin: 0 0 8px; color: #aebdb0; font-size: 10px; }
+.handoff-email, .handoff-meta { max-width: 100%; margin: 0 0 8px; color: #aebdb0; font-size: 10px; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
 .handoff-receipt-link { display: block; margin: 8px 0 12px; }
 .handoff-receipt { display: block; width: 100%; max-height: 180px; object-fit: contain; background: #1a2c29; }
 .handoff-stack { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
