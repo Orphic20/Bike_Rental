@@ -1981,6 +1981,10 @@ function RentalPhaseFiveActions({
   };
 
   const submitExtension = async () => {
+    if (!rental.due_at) {
+      toast.warning("Staff still need to release this bike before it can be extended.");
+      return;
+    }
     if (!price) {
       toast.warning("This bike has no weekly rate");
       return;
@@ -1994,8 +1998,12 @@ function RentalPhaseFiveActions({
       const extension = await api.createExtension(rental.id, {
         rate_selected: rate,
         payment_method: payment,
-        gcash_ref_no: payment === "gcash" ? reference.trim() : null,
-        gcash_receipt_url: payment === "gcash" ? receiptUrl : null,
+        ...(payment === "gcash"
+          ? {
+              gcash_ref_no: reference.trim(),
+              gcash_receipt_url: receiptUrl,
+            }
+          : {}),
       });
       toast.success("Extension requested", {
         description: `${formatPeso(extension.total_price)} must be paid exactly before staff approval.`,

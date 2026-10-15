@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from bike_rental.auth import CurrentUser, StaffUser
@@ -12,6 +13,7 @@ from bike_rental.availability import (
     BLOCKING_STATUSES,
     ensure_aware,
     existing_window,
+    overlapping_full_day_closure,
     span_days,
     windows_overlap,
 )
@@ -124,12 +126,7 @@ def create_extension(
         .where(Booking.booking_type == BookingType.extension)
         .where(Booking.rental_id == rental.id)
         .where(Booking.extension_applied_at.is_(None))
-        .where(
-            Booking.payment_status.notin_(
-                (PaymentStatus.cancelled, PaymentStatus.rejected)
-            )
-        )
-        .with_for_update()
+        .where(Booking.payment_status.not_in((PaymentStatus.cancelled, PaymentStatus.rejected)))
     ).first()
     if pending is not None:
         raise HTTPException(
@@ -142,7 +139,7 @@ def create_extension(
     ).first()
     if bike is None:
         raise HTTPException(status_code=500, detail="Rental has no bike")
-    if body.rate_selected.value == "weekly":
+    if body.rate_selected == RateSelected.weekly:
         if bike.weekly_rate is None:
             raise HTTPException(status_code=400, detail="Bike has no weekly rate")
         price = bike.weekly_rate
@@ -150,6 +147,12 @@ def create_extension(
         price = bike.daily_rate
 
     start, end = _extension_dates(rental, body.rate_selected)
+    closed = overlapping_full_day_closure(session, start, body.rate_selected)
+    if closed is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=closed.message or "The shop is closed on that date",
+        )
     if _bike_has_conflict(
         session,
         bike_id=bike.id,
@@ -176,6 +179,8 @@ def create_extension(
         booking_type=BookingType.extension,
         parent_booking_id=original.id,
         rental_id=rental.id,
+        waiver_version=original.waiver_version,
+        waiver_accepted_at=original.waiver_accepted_at,
     )
     session.add(extension)
     session.flush()
@@ -193,7 +198,14 @@ def create_extension(
             },
         )
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This rental already has an extension awaiting payment or approval",
+        )
     session.refresh(extension)
     return _to_read(extension, [])
 

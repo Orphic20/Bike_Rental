@@ -36,14 +36,19 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
 def _to_read(booking: Booking, rentals: list[tuple[Rental, Bike | None]]) -> BookingRead:
+    paid = booking.amount_paid if booking.amount_paid is not None else Decimal("0.00")
+    total = booking.total_price
+    balance = booking.balance_due
+    if balance is None:
+        balance = total - paid
     return BookingRead(
         id=booking.id,
         booking_ref=booking.booking_ref,
         expected_pickup_date=booking.expected_pickup_date,
         rate_selected=booking.rate_selected,
-        total_price=booking.total_price,
-        amount_paid=booking.amount_paid,
-        balance_due=booking.balance_due,
+        total_price=total,
+        amount_paid=paid,
+        balance_due=balance,
         payment_method=booking.payment_method,
         payment_status=booking.payment_status,
         booking_type=booking.booking_type,
