@@ -12,10 +12,13 @@ import type {
   ClosurePreview,
   Booking,
   BookingCreate,
+  ExtensionCreate,
   RateSelected,
   RevenueReport,
   Rental,
   StaffBooking,
+  SwapDecision,
+  SwapRequest,
   User,
   UserUpdate,
 } from "@/lib/types";
@@ -193,6 +196,20 @@ export const api = {
   cancelBooking: (id: string) =>
     request<Booking>(`/bookings/${id}/cancel`, { method: "POST", auth: true }),
 
+  createExtension: (rentalId: string, body: ExtensionCreate) =>
+    request<Booking>(`/rentals/${rentalId}/extensions`, {
+      method: "POST",
+      body,
+      auth: true,
+    }),
+
+  createSwapRequest: (rentalId: string, reason: string) =>
+    request<SwapRequest>(`/rentals/${rentalId}/swap-requests`, {
+      method: "POST",
+      body: { reason },
+      auth: true,
+    }),
+
   listStaffBookings: (
     params: { q?: string; tab?: "today" | "outstanding" } = {},
     signal?: AbortSignal,
@@ -225,6 +242,22 @@ export const api = {
   returnRental: (rentalId: string) =>
     request<Rental>(`/staff/rentals/${rentalId}/return`, {
       method: "POST",
+      auth: true,
+    }),
+
+  approveExtension: (bookingId: string) =>
+    request<Booking>(`/staff/extensions/${bookingId}/approve`, {
+      method: "POST",
+      auth: true,
+    }),
+
+  listSwapRequests: (signal?: AbortSignal) =>
+    request<SwapRequest[]>("/staff/swap-requests", { auth: true, signal }),
+
+  decideSwapRequest: (requestId: string, body: SwapDecision) =>
+    request<SwapRequest>(`/staff/swap-requests/${requestId}/decide`, {
+      method: "POST",
+      body,
       auth: true,
     }),
 

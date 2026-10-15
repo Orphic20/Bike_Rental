@@ -73,6 +73,11 @@ UI says so.
 | `POST /bookings` | Create a group booking, one rental row per bike | bearer |
 | `GET /bookings` | Bookings the caller owns, newest first | bearer |
 | `GET /bookings/{id}` | A single owned booking | bearer |
+| `POST /rentals/{id}/extensions` | Price and request one paid extension for an active rental | customer bearer |
+| `POST /staff/extensions/{booking_id}/approve` | Apply a fully paid extension and update `due_at` | staff/admin bearer |
+| `POST /rentals/{id}/swap-requests` | Request a replacement for an active rental | customer bearer |
+| `GET /staff/swap-requests` | Swap-request history, newest first | staff/admin bearer |
+| `POST /staff/swap-requests/{id}/decide` | Approve with a replacement bike or reject | staff/admin bearer |
 | `GET /admin/reports/revenue` | Paid revenue totals split by payment method and rate | admin bearer |
 | `GET /admin/audit-logs?page=1&page_size=25` | Paginated audit history, newest first | admin bearer |
 | `POST /admin/jobs/lifecycle-sweep?dry_run=true` | Preview or run the lifecycle sweep | admin bearer |
@@ -110,14 +115,18 @@ Apply the Supabase migrations before enabling the workflow. Then configure:
 The admin endpoint defaults to `dry_run=true`. Pass `dry_run=false` only when
 you intend to apply the transitions.
 
-## Not built yet
+## Extensions and swaps
 
-The `extensions_swaps` router is registered but does not expose endpoints.
-Consequently:
+An extension is one new booking linked to one existing rental. Creating it
+checks the bike's next daily or weekly window and calculates the exact price.
+The existing cash/GCash endpoints settle the extension. Only
+`POST /staff/extensions/{booking_id}/approve` applies a paid extension to the
+rental's `due_at`, with availability checked again while rows are locked.
 
-- "Extend rent" and "Request a swap" tell the customer the feature is pending.
-- Admin inventory, reservations, revenue reporting, and paginated audit history
-  are live.
-- `GET /admin/audit-logs` reads existing `audit_logs` rows; mutation endpoints
-  other than lifecycle automation still need to record the full set of audit
-  events described in `ARCHITECTURE.md`.
+Customers can request one pending swap per active rental. Staff chooses an
+available replacement or rejects it. Approval locks both bikes, checks
+reservation conflicts through the current due date, changes the rental's bike,
+and records an audit event.
+
+Apply `supabase/migrations/20261015010000_extensions_and_swaps.sql` before
+deploying this version.

@@ -22,6 +22,7 @@ import {
   useBikes,
   useMyBookings,
   useStaffBookings,
+  useSwapRequests,
 } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { SHOP_ADDRESS, SHOP_MAPS_EMBED_URL, SHOP_MAPS_URL, WAIVER_VERSION } from "@/lib/constants";
@@ -47,6 +48,7 @@ import {
   type ClosurePreview,
   type PaymentMethod,
   type RateSelected,
+  type Rental,
   type RoleName,
   type ShopClosure,
   type ShopClosureCreate,
@@ -1941,6 +1943,172 @@ function CancelRideButton({
   );
 }
 
+function RentalPhaseFiveActions({
+  rental,
+  onDone,
+}: {
+  rental: Rental;
+  onDone: () => void;
+}) {
+  const [mode, setMode] = useState<"extension" | "swap" | null>(null);
+  const [rate, setRate] = useState<RateSelected>("daily");
+  const [payment, setPayment] = useState<PaymentMethod>("cash");
+  const [reference, setReference] = useState("");
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [reason, setReason] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canAct = rental.status === "active";
+  const price = rate === "weekly" ? rental.bike_weekly_rate : rental.bike_daily_rate;
+
+  const uploadReceipt = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) {
+      toast.warning("Use an image under 8 MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const result = await api.uploadReceipt(file);
+      setReceiptUrl(result.url);
+      setReceiptName(file.name);
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Receipt upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submitExtension = async () => {
+    if (!price) {
+      toast.warning("This bike has no weekly rate");
+      return;
+    }
+    if (payment === "gcash" && (!reference.trim() || !receiptUrl)) {
+      toast.warning("Add the GCash reference and receipt");
+      return;
+    }
+    setBusy(true);
+    try {
+      const extension = await api.createExtension(rental.id, {
+        rate_selected: rate,
+        payment_method: payment,
+        gcash_ref_no: payment === "gcash" ? reference.trim() : null,
+        gcash_receipt_url: payment === "gcash" ? receiptUrl : null,
+      });
+      toast.success("Extension requested", {
+        description: `${formatPeso(extension.total_price)} must be paid exactly before staff approval.`,
+      });
+      setMode(null);
+      onDone();
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Could not request extension.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitSwap = async () => {
+    if (reason.trim().length < 3) {
+      toast.warning("Tell staff why you need a different bike");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.createSwapRequest(rental.id, reason.trim());
+      toast.success("Swap request sent");
+      setMode(null);
+      setReason("");
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Could not request swap.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!canAct) return null;
+  return (
+    <>
+      <div className="rental-inline-actions">
+        <button className="secondary-button" type="button" onClick={() => setMode("extension")}>
+          Extend rent <ArrowUpRight size={14} />
+        </button>
+        <button className="ghost-action" type="button" onClick={() => setMode("swap")}>
+          Request a swap
+        </button>
+      </div>
+      {mode && (
+        <div className="booking-date-modal-backdrop" role="presentation">
+          <section className="booking-date-modal phase-five-modal" role="dialog" aria-modal="true">
+            <button className="booking-date-close" type="button" onClick={() => setMode(null)}>
+              <X size={15} />
+            </button>
+            <span className="micro-label">{rental.bike_name ?? "Active rental"}</span>
+            <h2>{mode === "extension" ? "Extend this ride." : "Request a swap."}</h2>
+            {mode === "extension" ? (
+              <>
+                <p>The bike stays reserved only after exact payment and staff approval.</p>
+                <div className="form-grid compact-form">
+                  <label className="field-block">
+                    <span>Extension period</span>
+                    <select value={rate} onChange={(event) => setRate(event.target.value as RateSelected)}>
+                      <option value="daily">One day</option>
+                      <option value="weekly" disabled={!rental.bike_weekly_rate}>One week</option>
+                    </select>
+                  </label>
+                  <label className="field-block">
+                    <span>Payment</span>
+                    <select value={payment} onChange={(event) => setPayment(event.target.value as PaymentMethod)}>
+                      <option value="cash">Cash</option>
+                      <option value="gcash">GCash</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="phase-five-price">Exact total: <strong>{price ? formatPeso(price) : "Unavailable"}</strong></p>
+                {payment === "gcash" && (
+                  <div className="form-grid compact-form">
+                    <label className="field-block">
+                      <span>GCash reference</span>
+                      <input value={reference} onChange={(event) => setReference(event.target.value)} />
+                    </label>
+                    <label className="field-block upload-proof">
+                      <span>{uploading ? "Uploading…" : receiptName || "Upload receipt"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploading}
+                        onChange={(event) => {
+                          void uploadReceipt(event.target.files?.[0]);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                <button className="primary-button full-button" type="button" disabled={busy || uploading} onClick={submitExtension}>
+                  {busy ? "Sending…" : "Request extension"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p>Staff will choose an available replacement bike at the counter.</p>
+                <label className="field-block phase-five-reason">
+                  <span>Reason</span>
+                  <textarea maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
+                </label>
+                <button className="primary-button full-button" type="button" disabled={busy} onClick={submitSwap}>
+                  {busy ? "Sending…" : "Send swap request"}
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
 function MyRides({
   bookings,
   onBookAnother,
@@ -2038,6 +2206,7 @@ function MyRides({
                 {RENTAL_STATUS_LABELS[rental.status]}
               </Pill>
               <b>{formatPeso(rental.price)}</b>
+              <RentalPhaseFiveActions rental={rental} onDone={reload} />
             </div>
           ))}
 
@@ -2045,28 +2214,6 @@ function MyRides({
             {canCancelBooking(booking) && (
               <CancelRideButton booking={booking} onDone={reload} />
             )}
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() =>
-                toast("Extensions are not available yet", {
-                  description: "The extensions API is still being built.",
-                })
-              }
-            >
-              Extend rent <ArrowUpRight size={14} />
-            </button>
-            <button
-              className="ghost-action"
-              type="button"
-              onClick={() =>
-                toast("Swaps are not available yet", {
-                  description: "The swaps API is still being built.",
-                })
-              }
-            >
-              Request a swap
-            </button>
           </div>
         </section>
       ))}
@@ -2086,7 +2233,9 @@ function MyRides({
               </span>
               <div>
                 <strong>
-                  {booking.rentals.map((rental) => rental.bike_name ?? "Bike").join(", ")}
+                  {booking.booking_type === "extension"
+                    ? "Rental extension"
+                    : booking.rentals.map((rental) => rental.bike_name ?? "Bike").join(", ")}
                 </strong>
                 <span>
                   {booking.rate_selected === "weekly" ? "Weekly" : "Daily"} ·{" "}
@@ -2115,6 +2264,7 @@ function auditActionLabel(action: string): string {
 
 function StaffView() {
   const { profile } = useAuth();
+  const [opsScreen, setOpsScreen] = useState<"queue" | "swaps">("queue");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "today" | "outstanding" | "pending">("today");
@@ -2127,6 +2277,9 @@ function StaffView() {
   }, [query]);
 
   const queue = useStaffBookings(search);
+  const swaps = useSwapRequests();
+  const replacementBikes = useBikes(null, "daily");
+  const [replacementByRequest, setReplacementByRequest] = useState<Record<string, string>>({});
   const today = todayIso();
 
   const visible = useMemo(() => {
@@ -2183,9 +2336,94 @@ function StaffView() {
   };
 
   const bikesLine = (booking: StaffBooking) =>
-    booking.rentals
+    booking.booking_type === "extension"
+      ? "Rental extension"
+      : booking.rentals
       .map((rental) => rental.bike_name ?? "Bike")
       .join(", ") || "No bikes";
+
+  if (opsScreen === "swaps") {
+    const pendingSwaps = (swaps.data ?? []).filter((request) => request.status === "pending");
+    const availableReplacements = (replacementBikes.data ?? []).filter(
+      (bike) => bike.status === "available",
+    );
+    const decide = async (requestId: string, decision: "approved" | "rejected") => {
+      const newBikeId = replacementByRequest[requestId];
+      if (decision === "approved" && !newBikeId) {
+        toast.warning("Choose a replacement bike");
+        return;
+      }
+      setBusy(true);
+      try {
+        await api.decideSwapRequest(requestId, {
+          decision,
+          new_bike_id: decision === "approved" ? newBikeId : null,
+          original_bike_status: "available",
+        });
+        toast.success(decision === "approved" ? "Swap approved" : "Swap rejected");
+        swaps.reload();
+        replacementBikes.reload();
+        queue.reload();
+      } catch (cause) {
+        toast.error(cause instanceof ApiError ? cause.message : "Could not decide swap.");
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    return (
+      <div className="product-layout ops-layout">
+        <aside className="app-sidebar ops-sidebar">
+          <div className="ops-profile">
+            <span className="avatar staff-avatar">{initials || "ST"}</span>
+            <div><strong>{profile?.name || "Counter"}</strong><small>Staff · Bagong Sikat</small></div>
+          </div>
+          <div className="sidebar-nav-label">Operations</div>
+          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("queue")}>
+            <LayoutDashboard size={17} /> Today's queue
+          </button>
+          <button className="sidebar-link active" type="button">
+            <ClipboardCheck size={17} /> Swap requests
+          </button>
+        </aside>
+        <main className="product-main">
+          <div className="page-heading ops-heading">
+            <div><span className="micro-label">Staff decisions</span><h1>Swap requests.</h1><p>Assign an available bike or reject the request.</p></div>
+          </div>
+          {swaps.error && <AsyncNote tone="error" message={swaps.error} onRetry={swaps.reload} />}
+          {swaps.loading && !swaps.data && <AsyncNote message="Loading swap requests…" />}
+          {!swaps.loading && pendingSwaps.length === 0 && <AsyncNote message="No pending swap requests." />}
+          <div className="swap-request-grid">
+            {pendingSwaps.map((request) => (
+              <section className="rides-list-card" key={request.id}>
+                <span className="micro-label">{request.customer_name ?? "Customer"}</span>
+                <h2>{request.original_bike_name ?? "Current bike"}</h2>
+                <p>{request.reason}</p>
+                <label className="field-block">
+                  <span>Replacement bike</span>
+                  <select
+                    value={replacementByRequest[request.id] ?? ""}
+                    onChange={(event) =>
+                      setReplacementByRequest((current) => ({ ...current, [request.id]: event.target.value }))
+                    }
+                  >
+                    <option value="">Choose an available bike</option>
+                    {availableReplacements
+                      .filter((bike) => bike.id !== request.original_bike_id)
+                      .map((bike) => <option value={bike.id} key={bike.id}>{bike.name}</option>)}
+                  </select>
+                </label>
+                <div className="ride-actions">
+                  <button className="primary-button" type="button" disabled={busy} onClick={() => void decide(request.id, "approved")}>Approve</button>
+                  <button className="ghost-action" type="button" disabled={busy} onClick={() => void decide(request.id, "rejected")}>Reject</button>
+                </div>
+              </section>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="product-layout ops-layout">
@@ -2204,11 +2442,7 @@ function StaffView() {
         <button
           className="sidebar-link"
           type="button"
-          onClick={() =>
-            toast("Swaps are not available yet", {
-              description: "Phase 5 will add swap requests.",
-            })
-          }
+          onClick={() => setOpsScreen("swaps")}
         >
           <ClipboardCheck size={17} /> Swap requests
         </button>
@@ -2451,7 +2685,9 @@ function StaffView() {
                         </button>
                       </>
                     )}
-                  {selected.payment_status === "paid" &&
+                  {selected.booking_type === "new" &&
+                    selected.payment_status === "paid" &&
+                    selected.rentals.length > 0 &&
                     selected.rentals.every((rental) => rental.status === "reserved") && (
                       <button
                         className="primary-button full-button"
@@ -2462,6 +2698,20 @@ function StaffView() {
                         }
                       >
                         Release bikes <ArrowUpRight size={15} />
+                      </button>
+                    )}
+                  {selected.booking_type === "extension" &&
+                    selected.payment_status === "paid" &&
+                    !selected.extension_applied_at && (
+                      <button
+                        className="primary-button full-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run("Extension approved", () => api.approveExtension(selected.id))
+                        }
+                      >
+                        Approve extension <ArrowUpRight size={15} />
                       </button>
                     )}
                 </div>

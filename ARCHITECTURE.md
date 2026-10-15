@@ -171,6 +171,10 @@ The HTTP surface currently implemented by the FastAPI service in `src/bike_renta
 | `GET /bookings` | Every booking the caller owns, newest first. | bearer |
 | `GET /bookings/{booking_id}` | A single owned booking. | bearer |
 
-Payments, Staff operations, Admin management/reporting, closures, uploads, and lifecycle jobs are implemented and connected where applicable. The `extensions_swaps` router remains the primary registered router without endpoints.
+Payments, Staff operations, Admin management/reporting, closures, uploads,
+lifecycle jobs, per-rental extensions, and customer/staff swap workflows are
+implemented and connected to the frontend. Extension approval is the only
+extension action that changes an existing rental's `due_at`; it requires exact
+full payment and repeats the availability check under row locks.
 
 Authentication is delegated to Supabase. The frontend obtains a session through `@supabase/supabase-js` and sends the access token as a bearer token; the backend verifies it against the project's JWKS endpoint using ES256.

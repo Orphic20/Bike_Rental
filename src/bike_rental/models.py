@@ -224,6 +224,9 @@ class Booking(SQLModel, table=True):
             PG_UUID(as_uuid=True), ForeignKey("rentals.id", use_alter=True)
         ),
     )
+    extension_applied_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
 
     waiver_version: Optional[str] = None
     waiver_accepted_at: Optional[datetime] = Field(
@@ -282,6 +285,7 @@ class SwapRequest(SQLModel, table=True):
         sa_column=Column(PG_UUID(as_uuid=True), primary_key=True),
     )
     rental_id: uuid.UUID = Field(foreign_key="rentals.id")
+    old_bike_id: uuid.UUID = Field(foreign_key="bikes.id")
     reason: str
     status: SwapStatus = Field(
         default=SwapStatus.pending,
@@ -405,6 +409,8 @@ class RentalRead(SQLModel):
     # whole catalogue to resolve every bike_id.
     bike_name: Optional[str] = None
     bike_type: Optional[BikeType] = None
+    bike_daily_rate: Optional[Decimal] = None
+    bike_weekly_rate: Optional[Decimal] = None
     released_at: Optional[datetime]
     due_at: Optional[datetime]
     returned_at: Optional[datetime]
@@ -423,8 +429,44 @@ class BookingRead(SQLModel):
     payment_method: PaymentMethod
     payment_status: PaymentStatus
     booking_type: BookingType = BookingType.new
+    parent_booking_id: Optional[uuid.UUID] = None
+    rental_id: Optional[uuid.UUID] = None
+    extension_applied_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     rentals: list[RentalRead] = []
+
+
+class ExtensionCreate(SQLModel):
+    rate_selected: RateSelected
+    payment_method: PaymentMethod
+    gcash_ref_no: Optional[str] = None
+    gcash_receipt_url: Optional[str] = None
+
+
+class SwapRequestCreate(SQLModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class SwapDecision(SQLModel):
+    decision: Literal["approved", "rejected"]
+    new_bike_id: Optional[uuid.UUID] = None
+    original_bike_status: Literal["available", "maintenance"] = "available"
+
+
+class SwapRequestRead(SQLModel):
+    id: uuid.UUID
+    rental_id: uuid.UUID
+    reason: str
+    status: SwapStatus
+    new_bike_id: Optional[uuid.UUID] = None
+    handled_by_staff_id: Optional[uuid.UUID] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    original_bike_id: Optional[uuid.UUID] = None
+    original_bike_name: Optional[str] = None
+    new_bike_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class BikeRead(SQLModel):
     id: uuid.UUID

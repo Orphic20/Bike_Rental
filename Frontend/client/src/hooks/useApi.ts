@@ -8,6 +8,7 @@ import type {
   RevenueReport,
   ShopClosure,
   StaffBooking,
+  SwapRequest,
   User,
 } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
@@ -143,6 +144,41 @@ export function useStaffBookings(q: string): Resource<StaffBooking[]> {
 
     return () => controller.abort();
   }, [session, q, nonce]);
+
+  return { data, loading, error, reload };
+}
+
+export function useSwapRequests(): Resource<SwapRequest[]> {
+  const { session } = useAuth();
+  const [data, setData] = useState<SwapRequest[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!session) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    api
+      .listSwapRequests(controller.signal)
+      .then((rows) => {
+        setData(rows);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(describe(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [session, nonce]);
 
   return { data, loading, error, reload };
 }

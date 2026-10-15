@@ -47,6 +47,9 @@ def _to_read(booking: Booking, rentals: list[tuple[Rental, Bike | None]]) -> Boo
         payment_method=booking.payment_method,
         payment_status=booking.payment_status,
         booking_type=booking.booking_type,
+        parent_booking_id=booking.parent_booking_id,
+        rental_id=booking.rental_id,
+        extension_applied_at=booking.extension_applied_at,
         created_at=booking.created_at,
         rentals=[
             RentalRead(
@@ -54,6 +57,8 @@ def _to_read(booking: Booking, rentals: list[tuple[Rental, Bike | None]]) -> Boo
                 bike_id=rental.bike_id,
                 bike_name=bike.name if bike else None,
                 bike_type=bike.type if bike else None,
+                bike_daily_rate=bike.daily_rate if bike else None,
+                bike_weekly_rate=bike.weekly_rate if bike else None,
                 released_at=rental.released_at,
                 due_at=rental.due_at,
                 returned_at=rental.returned_at,

@@ -498,6 +498,16 @@ button:not(:disabled), a { cursor: pointer; }
 .ride-bike-copy h3 { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 20px; letter-spacing: -.05em; margin: 4px 0; }
 .ride-bike-copy p { color: #849087; font-size: 10px; margin: 0; }
 .ride-actions { display: flex; align-items: center; gap: 20px; padding-top: 17px; }
+.rental-inline-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; padding-left: 94px; }
+.phase-five-modal select, .phase-five-modal input, .phase-five-modal textarea, .swap-request-grid select { width: 100%; border: 1px solid #d7ddd4; background: #fffef9; color: #304a41; padding: 11px 12px; font: inherit; }
+.phase-five-modal textarea { min-height: 110px; resize: vertical; }
+.phase-five-modal .compact-form { margin-top: 20px; }
+.phase-five-price { margin: 18px 0 !important; color: #304a41 !important; }
+.phase-five-reason { display: block; margin: 22px 0 18px; }
+.phase-five-modal .full-button { width: 100%; justify-content: center; margin-top: 18px; }
+.swap-request-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.swap-request-grid .rides-list-card > h2 { margin: 6px 0; font-family: "Fraunces", Georgia, serif; color: #304a41; }
+.swap-request-grid .rides-list-card > p { min-height: 42px; color: #74827a; font-size: 12px; line-height: 1.55; }
 .ghost-action { border: 0; background: transparent; color: #8a958d; font-size: 10px; padding: 0; }
 .ghost-action:hover { color: #c84c3d; }
 .history-row { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 11px; padding: 16px 0; border-bottom: 1px solid #e3e3da; }
@@ -750,7 +760,7 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
   .mini-bike-grid { grid-template-columns: 1fr; }.mini-bike-card { display: grid; grid-template-columns: 115px 1fr; }.mini-bike-image { height: 100%; min-height: 100px; }.mini-bike-copy { justify-content: center; }
   .summary-card { grid-template-columns: 105px 1fr; padding: 14px; }.summary-bike-image { height: 95px; }.summary-bike-name h3 { font-size: 19px; }.summary-details { gap: 7px; }.summary-total strong { font-size: 21px; }
   .ride-status-banner { align-items: flex-start; flex-wrap: wrap; }.ride-status-banner > .app-pill { margin-left: 50px; }
-  .ride-bike-row { grid-template-columns: 63px 1fr auto; }.ride-bike-row img { width: 63px; height: 60px; }.ride-bike-row > .icon-button { grid-column: 3; grid-row: 1; }.ride-bike-row > .app-pill { grid-column: 2; grid-row: 2; justify-self: start; }.reservation-row { grid-template-columns: 62px 1fr auto; padding: 12px 0; }.reservation-row > .app-pill { grid-column: 2; justify-self: start; }.reservation-row > .icon-button { grid-column: 3; grid-row: 1 / span 2; }.reservation-row.focused { margin: 0 -6px; padding: 0 6px; }
+  .ride-bike-row { grid-template-columns: 63px 1fr auto; }.ride-bike-row img { width: 63px; height: 60px; }.ride-bike-row > .icon-button { grid-column: 3; grid-row: 1; }.ride-bike-row > .app-pill { grid-column: 2; grid-row: 2; justify-self: start; }.rental-inline-actions { padding-left: 0; }.reservation-row { grid-template-columns: 62px 1fr auto; padding: 12px 0; }.reservation-row > .app-pill { grid-column: 2; justify-self: start; }.reservation-row > .icon-button { grid-column: 3; grid-row: 1 / span 2; }.reservation-row.focused { margin: 0 -6px; padding: 0 6px; }
   .ops-toolbar { flex-direction: column; align-items: stretch; }
   .ops-metrics { grid-template-columns: 1fr 1fr; }.ops-metrics > div:last-child { grid-column: 1 / -1; }.ops-metrics > div { min-height: 120px; }
   .swap-row { grid-template-columns: 34px 1fr auto; }.swap-row .ghost-action { grid-column: 2; justify-self: start; }.swap-row .secondary-button { grid-column: 3; grid-row: 1; }

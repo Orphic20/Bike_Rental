@@ -62,6 +62,8 @@ export interface Rental {
   bike_id: string;
   bike_name: string | null;
   bike_type: BikeType | null;
+  bike_daily_rate: string | null;
+  bike_weekly_rate: string | null;
   released_at: string | null;
   due_at: string | null;
   returned_at: string | null;
@@ -80,6 +82,9 @@ export interface Booking {
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
   booking_type: BookingType;
+  parent_booking_id: string | null;
+  rental_id: string | null;
+  extension_applied_at: string | null;
   created_at: string | null;
   rentals: Rental[];
 }
@@ -99,6 +104,37 @@ export interface BookingCreate {
   gcash_ref_no?: string | null;
   gcash_receipt_url?: string | null;
   waiver_version: string;
+}
+
+export interface ExtensionCreate {
+  rate_selected: RateSelected;
+  payment_method: PaymentMethod;
+  gcash_ref_no?: string | null;
+  gcash_receipt_url?: string | null;
+}
+
+export type SwapStatus = "pending" | "approved" | "rejected" | "completed";
+
+export interface SwapRequest {
+  id: string;
+  rental_id: string;
+  reason: string;
+  status: SwapStatus;
+  new_bike_id: string | null;
+  handled_by_staff_id: string | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  original_bike_id: string | null;
+  original_bike_name: string | null;
+  new_bike_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SwapDecision {
+  decision: "approved" | "rejected";
+  new_bike_id?: string | null;
+  original_bike_status?: "available" | "maintenance";
 }
 
 export interface BikeCreate {
