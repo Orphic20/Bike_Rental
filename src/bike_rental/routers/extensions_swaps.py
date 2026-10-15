@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlmodel import select
 
 from bike_rental.auth import CurrentUser, StaffUser
@@ -29,6 +29,7 @@ from bike_rental.models import (
     ExtensionCreate,
     PaymentMethod,
     PaymentStatus,
+    RateSelected,
     Rental,
     RentalStatus,
     SwapDecision,
@@ -79,6 +80,17 @@ def _bike_has_conflict(
     )
 
 
+def _extension_insert_error(exc: Exception) -> str:
+    message = str(getattr(exc, "orig", exc)).lower()
+    if "one_pending_extension" in message:
+        return "This rental already has an extension awaiting payment or approval"
+    if "booking_type" in message:
+        return "Extension bookings are not enabled on the database yet"
+    if "waiver" in message:
+        return "The original booking is missing a waiver"
+    return "Could not create this extension"
+
+
 def _payment_state(body: ExtensionCreate) -> PaymentStatus:
     if body.payment_method == PaymentMethod.gcash:
         if not (body.gcash_ref_no or "").strip() or not (
@@ -126,7 +138,11 @@ def create_extension(
         .where(Booking.booking_type == BookingType.extension)
         .where(Booking.rental_id == rental.id)
         .where(Booking.extension_applied_at.is_(None))
-        .where(Booking.payment_status.not_in((PaymentStatus.cancelled, PaymentStatus.rejected)))
+        .where(
+            Booking.payment_status.notin_(
+                (PaymentStatus.cancelled, PaymentStatus.rejected)
+            )
+        )
     ).first()
     if pending is not None:
         raise HTTPException(
@@ -183,29 +199,29 @@ def create_extension(
         waiver_accepted_at=original.waiver_accepted_at,
     )
     session.add(extension)
-    session.flush()
-    session.add(
-        AuditLog(
-            actor_id=user.id,
-            action="extension.requested",
-            target_table="bookings",
-            target_id=extension.id,
-            details={
-                "rental_id": str(rental.id),
-                "parent_booking_id": str(original.id),
-                "rate": body.rate_selected.value,
-                "price": str(price),
-            },
-        )
-    )
     try:
+        session.flush()
+        session.add(
+            AuditLog(
+                actor_id=user.id,
+                action="extension.requested",
+                target_table="bookings",
+                target_id=extension.id,
+                details={
+                    "rental_id": str(rental.id),
+                    "parent_booking_id": str(original.id),
+                    "rate": body.rate_selected.value,
+                    "price": str(price),
+                },
+            )
+        )
         session.commit()
-    except IntegrityError:
+    except (IntegrityError, DataError) as exc:
         session.rollback()
         raise HTTPException(
             status_code=409,
-            detail="This rental already has an extension awaiting payment or approval",
-        )
+            detail=_extension_insert_error(exc),
+        ) from exc
     session.refresh(extension)
     return _to_read(extension, [])
 

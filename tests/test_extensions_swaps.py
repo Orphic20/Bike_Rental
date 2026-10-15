@@ -21,10 +21,12 @@ from bike_rental.models import (
     Rental,
     RentalStatus,
 )
+from bike_rental.routers.bookings import _to_read
 from bike_rental.routers.extensions_swaps import (
     _bike_has_conflict,
     _extension_dates,
     _extension_due_at,
+    _extension_insert_error,
     _payment_state,
 )
 
@@ -124,6 +126,22 @@ def test_gcash_extension_requires_both_proof_fields():
                 gcash_ref_no="123",
             )
         )
+
+
+def test_to_read_fills_unloaded_generated_balance():
+    row = booking(pickup=date(2026, 10, 16), rate=RateSelected.daily)
+    row.total_price = Decimal("50.00")
+    row.amount_paid = Decimal("0.00")
+    row.balance_due = None
+    row.booking_type = BookingType.extension
+
+    assert _to_read(row, []).balance_due == Decimal("50.00")
+
+
+def test_insert_error_maps_booking_type_check():
+    assert "database" in _extension_insert_error(
+        Exception('new row violates check constraint "bookings_booking_type_check"')
+    )
 
 
 def test_cash_extension_rejects_gcash_fields():

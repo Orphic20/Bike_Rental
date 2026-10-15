@@ -1674,8 +1674,25 @@ function CustomerView({
                     />
                     <span className="fake-check">{waiver && <Check size={12} />}</span>
                     <span>
-                      I agree to the <u>Liability Waiver</u> and <u>Terms of Service</u> (v
-                      {WAIVER_VERSION}).
+                      I agree to the{" "}
+                      <a
+                        href="/terms/#liability-waiver"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Liability Waiver
+                      </a>{" "}
+                      and{" "}
+                      <a
+                        href="/terms/"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Terms of Service
+                      </a>{" "}
+                      (v{WAIVER_VERSION}).
                     </span>
                   </label>
                 </div>

@@ -434,7 +434,7 @@ button:not(:disabled), a { cursor: pointer; }
 .fake-check { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1px solid #bdc8ba; color: white; background: transparent; margin-top: -1px; }
 .check-row.checked .fake-check { border-color: #6e9270; background: #6e9270; }
 .check-row.checked { color: #4c6558; }
-.check-row u { color: #a45345; text-underline-offset: 2px; }
+.check-row a { color: #a45345; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .mini-bike-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 30px; }
 .mini-bike-card { padding: 0; border: 1px solid #dedfd6; background: #f8f6ef; text-align: left; transition: transform .2s ease, border .2s ease; }
 .mini-bike-card:hover, .mini-bike-card.selected { transform: translateY(-2px); border-color: #c84c3d; }

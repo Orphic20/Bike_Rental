@@ -31,6 +31,14 @@ export default function Terms() {
         <li>Return the bike on time and in the condition you received it, aside from normal use.</li>
         <li>You are responsible for the bike while it is rented to you.</li>
       </ul>
+      <h2 id="liability-waiver">Liability waiver</h2>
+      <p>
+        Cycling involves risks including falls, collisions, road hazards, weather,
+        and the actions of other road users. By renting a bike, you confirm that you
+        are able to ride safely, will follow traffic rules, and accept these ordinary
+        risks. Muñoz Bike Rental is not responsible for injury, loss, or damage caused
+        by misuse, unsafe riding, or failure to follow the rental instructions.
+      </p>
       <p>
         <a href="/privacy-policy/">Privacy policy</a>
         {" · "}
