@@ -170,6 +170,7 @@ def return_rental(
         bike_id=rental.bike_id,
         bike_name=bike.name,
         bike_type=bike.type,
+        bike_image_url=bike.image_url,
         bike_daily_rate=bike.daily_rate,
         bike_weekly_rate=bike.weekly_rate,
         released_at=rental.released_at,

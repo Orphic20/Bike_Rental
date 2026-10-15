@@ -2189,6 +2189,7 @@ function MyRides({
             <div className="ride-bike-row" key={rental.id}>
               <BikeArt
                 type={rental.bike_type}
+                imageUrl={rental.bike_image_url}
                 alt={rental.bike_name ?? "Bike"}
               />
               <div className="ride-bike-copy">
@@ -2255,6 +2256,84 @@ function MyRides({
 // =============================================================================
 // Staff and admin
 // =============================================================================
+
+function matchesBikeQuery(bike: Bike, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    bike.name.toLowerCase().includes(needle) ||
+    bike.type.toLowerCase().includes(needle) ||
+    BIKE_TYPE_LABELS[bike.type].toLowerCase().includes(needle)
+  );
+}
+
+function SwapBikePicker({
+  bikes,
+  selectedId,
+  excludeId,
+  onSelect,
+}: {
+  bikes: Bike[];
+  selectedId: string;
+  excludeId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const options = bikes.filter(
+    (bike) =>
+      bike.status === "available" &&
+      bike.id !== excludeId &&
+      matchesBikeQuery(bike, query),
+  );
+
+  return (
+    <div className="swap-bike-picker">
+      <span className="field-block">
+        <span>Replacement bike</span>
+      </span>
+      <label className="swap-bike-search">
+        <Search size={15} />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search name or type"
+          aria-label="Search available bikes"
+        />
+      </label>
+      {options.length === 0 ? (
+        <AsyncNote
+          message={
+            query.trim()
+              ? "No available bikes match that search."
+              : "No available bikes."
+          }
+        />
+      ) : (
+        <div className="swap-bike-grid" role="listbox" aria-label="Available replacement bikes">
+          {options.map((bike) => {
+            const chosen = bike.id === selectedId;
+            return (
+              <button
+                key={bike.id}
+                type="button"
+                role="option"
+                aria-selected={chosen}
+                className={chosen ? "swap-bike-option selected" : "swap-bike-option"}
+                onClick={() => onSelect(chosen ? "" : bike.id)}
+              >
+                <span className="swap-bike-photo">
+                  <BikeArt type={bike.type} imageUrl={bike.image_url} alt={bike.name} />
+                </span>
+                <span className="bike-kind">{BIKE_TYPE_LABELS[bike.type]}</span>
+                <strong>{bike.name}</strong>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function auditActionLabel(action: string): string {
   return action
@@ -2392,33 +2471,49 @@ function StaffView() {
           </div>
           {swaps.error && <AsyncNote tone="error" message={swaps.error} onRetry={swaps.reload} />}
           {swaps.loading && !swaps.data && <AsyncNote message="Loading swap requests…" />}
+          {replacementBikes.error && (
+            <AsyncNote tone="error" message={replacementBikes.error} onRetry={replacementBikes.reload} />
+          )}
           {!swaps.loading && pendingSwaps.length === 0 && <AsyncNote message="No pending swap requests." />}
           <div className="swap-request-grid">
-            {pendingSwaps.map((request) => (
+            {pendingSwaps.map((request) => {
+              const currentBike = (replacementBikes.data ?? []).find(
+                (bike) => bike.id === request.original_bike_id,
+              );
+              return (
               <section className="rides-list-card" key={request.id}>
-                <span className="micro-label">{request.customer_name ?? "Customer"}</span>
-                <h2>{request.original_bike_name ?? "Current bike"}</h2>
+                <div className="swap-current-bike">
+                  <span className="swap-bike-photo">
+                    <BikeArt
+                      type={currentBike?.type ?? "japanese"}
+                      imageUrl={currentBike?.image_url}
+                      alt={request.original_bike_name ?? "Current bike"}
+                    />
+                  </span>
+                  <div>
+                    <span className="micro-label">{request.customer_name ?? "Customer"}</span>
+                    <h2>{request.original_bike_name ?? "Current bike"}</h2>
+                    <span className="bike-kind">
+                      {currentBike ? BIKE_TYPE_LABELS[currentBike.type] : "On rent"}
+                    </span>
+                  </div>
+                </div>
                 <p>{request.reason}</p>
-                <label className="field-block">
-                  <span>Replacement bike</span>
-                  <select
-                    value={replacementByRequest[request.id] ?? ""}
-                    onChange={(event) =>
-                      setReplacementByRequest((current) => ({ ...current, [request.id]: event.target.value }))
-                    }
-                  >
-                    <option value="">Choose an available bike</option>
-                    {availableReplacements
-                      .filter((bike) => bike.id !== request.original_bike_id)
-                      .map((bike) => <option value={bike.id} key={bike.id}>{bike.name}</option>)}
-                  </select>
-                </label>
+                <SwapBikePicker
+                  bikes={availableReplacements}
+                  selectedId={replacementByRequest[request.id] ?? ""}
+                  excludeId={request.original_bike_id}
+                  onSelect={(id) =>
+                    setReplacementByRequest((current) => ({ ...current, [request.id]: id }))
+                  }
+                />
                 <div className="ride-actions">
                   <button className="primary-button" type="button" disabled={busy} onClick={() => void decide(request.id, "approved")}>Approve</button>
                   <button className="ghost-action" type="button" disabled={busy} onClick={() => void decide(request.id, "rejected")}>Reject</button>
                 </div>
               </section>
-            ))}
+              );
+            })}
           </div>
         </main>
       </div>

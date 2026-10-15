@@ -409,6 +409,7 @@ class RentalRead(SQLModel):
     # whole catalogue to resolve every bike_id.
     bike_name: Optional[str] = None
     bike_type: Optional[BikeType] = None
+    bike_image_url: Optional[str] = None
     bike_daily_rate: Optional[Decimal] = None
     bike_weekly_rate: Optional[Decimal] = None
     released_at: Optional[datetime]

@@ -62,6 +62,7 @@ export interface Rental {
   bike_id: string;
   bike_name: string | null;
   bike_type: BikeType | null;
+  bike_image_url: string | null;
   bike_daily_rate: string | null;
   bike_weekly_rate: string | null;
   released_at: string | null;

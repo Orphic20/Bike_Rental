@@ -57,6 +57,7 @@ def _to_read(booking: Booking, rentals: list[tuple[Rental, Bike | None]]) -> Boo
                 bike_id=rental.bike_id,
                 bike_name=bike.name if bike else None,
                 bike_type=bike.type if bike else None,
+                bike_image_url=bike.image_url if bike else None,
                 bike_daily_rate=bike.daily_rate if bike else None,
                 bike_weekly_rate=bike.weekly_rate if bike else None,
                 released_at=rental.released_at,

@@ -505,9 +505,22 @@ button:not(:disabled), a { cursor: pointer; }
 .phase-five-price { margin: 18px 0 !important; color: #304a41 !important; }
 .phase-five-reason { display: block; margin: 22px 0 18px; }
 .phase-five-modal .full-button { width: 100%; justify-content: center; margin-top: 18px; }
-.swap-request-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.swap-request-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .swap-request-grid .rides-list-card > h2 { margin: 6px 0; font-family: "Fraunces", Georgia, serif; color: #304a41; }
 .swap-request-grid .rides-list-card > p { min-height: 42px; color: #74827a; font-size: 12px; line-height: 1.55; }
+.swap-current-bike { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; margin-bottom: 12px; }
+.swap-current-bike h2 { margin: 4px 0 6px; font-family: "Fraunces", Georgia, serif; color: #304a41; font-size: 22px; letter-spacing: -.05em; }
+.swap-bike-photo { display: block; height: 88px; overflow: hidden; background: #e0e8d8; }
+.swap-bike-picker { margin-top: 16px; }
+.swap-bike-picker .field-block { margin-bottom: 8px; }
+.swap-bike-search { display: flex; align-items: center; gap: 8px; min-height: 42px; border: 1px solid #d4dbd1; background: #fffef9; color: #708078; padding: 0 12px; }
+.swap-bike-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: #304a41; font: inherit; font-size: 13px; outline: none; }
+.swap-bike-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; max-height: 320px; overflow: auto; margin-top: 10px; padding-right: 2px; }
+.swap-bike-option { display: flex; flex-direction: column; gap: 6px; padding: 0 0 10px; border: 1px solid #dedfd6; background: #f8f6ef; color: #304a41; text-align: left; }
+.swap-bike-option .swap-bike-photo { height: 92px; }
+.swap-bike-option .bike-kind { padding: 0 9px; }
+.swap-bike-option strong { padding: 0 9px; font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
+.swap-bike-option.selected { border-color: #c84c3d; box-shadow: inset 3px 0 #c84c3d; background: #fff8f1; }
 .ghost-action { border: 0; background: transparent; color: #8a958d; font-size: 10px; padding: 0; }
 .ghost-action:hover { color: #c84c3d; }
 .history-row { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 11px; padding: 16px 0; border-bottom: 1px solid #e3e3da; }
@@ -761,6 +774,10 @@ button.reservation-row { width: 100%; margin: 0; padding: 0; border: 0; border-b
   .summary-card { grid-template-columns: 105px 1fr; padding: 14px; }.summary-bike-image { height: 95px; }.summary-bike-name h3 { font-size: 19px; }.summary-details { gap: 7px; }.summary-total strong { font-size: 21px; }
   .ride-status-banner { align-items: flex-start; flex-wrap: wrap; }.ride-status-banner > .app-pill { margin-left: 50px; }
   .ride-bike-row { grid-template-columns: 63px 1fr auto; }.ride-bike-row img { width: 63px; height: 60px; }.ride-bike-row > .icon-button { grid-column: 3; grid-row: 1; }.ride-bike-row > .app-pill { grid-column: 2; grid-row: 2; justify-self: start; }.rental-inline-actions { padding-left: 0; }.reservation-row { grid-template-columns: 62px 1fr auto; padding: 12px 0; }.reservation-row > .app-pill { grid-column: 2; justify-self: start; }.reservation-row > .icon-button { grid-column: 3; grid-row: 1 / span 2; }.reservation-row.focused { margin: 0 -6px; padding: 0 6px; }
+  .swap-current-bike { grid-template-columns: 72px minmax(0, 1fr); }
+  .swap-current-bike h2 { font-size: 20px; }
+  .swap-bike-photo, .swap-bike-option .swap-bike-photo { height: 78px; }
+  .swap-bike-grid { grid-template-columns: 1fr 1fr; max-height: 280px; }
   .ops-toolbar { flex-direction: column; align-items: stretch; }
   .ops-metrics { grid-template-columns: 1fr 1fr; }.ops-metrics > div:last-child { grid-column: 1 / -1; }.ops-metrics > div { min-height: 120px; }
   .swap-row { grid-template-columns: 34px 1fr auto; }.swap-row .ghost-action { grid-column: 2; justify-self: start; }.swap-row .secondary-button { grid-column: 3; grid-row: 1; }
