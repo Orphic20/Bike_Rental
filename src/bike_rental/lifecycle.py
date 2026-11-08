@@ -26,6 +26,8 @@ SHOP_TIME_ZONE = ZoneInfo("Asia/Manila")
 SHOP_CLOSING_TIME = time(19, 0)
 RECEIPT_FOLDER = "munoz/receipts"
 RECEIPT_RETENTION = timedelta(days=30)
+RECEIPT_PURGE_LIMIT = 10
+RECEIPT_PURGE_BUDGET = timedelta(seconds=25)
 
 NO_SHOW_PAYMENT_STATUSES = (
     PaymentStatus.unpaid_pending_pickup,
@@ -82,7 +84,7 @@ def _purge_stale_gcash_receipts(
         .where(Booking.created_at.is_not(None))
         .where(Booking.created_at <= cutoff)
         .order_by(Booking.id)
-        .with_for_update()
+        .limit(RECEIPT_PURGE_LIMIT)
     ).all()
 
     matched_ids: list[uuid.UUID] = []
@@ -90,6 +92,7 @@ def _purge_stale_gcash_receipts(
     skipped_failed = 0
     updated = 0
 
+    deadline = datetime.now(timezone.utc) + RECEIPT_PURGE_BUDGET
     for booking in rows:
         if booking.created_at is None:
             continue
@@ -103,6 +106,8 @@ def _purge_stale_gcash_receipts(
         matched_ids.append(booking.id)
         if dry_run:
             continue
+        if datetime.now(timezone.utc) >= deadline:
+            break
         receipt_url = booking.gcash_receipt_url
         if not delete_receipt(receipt_url, folder=RECEIPT_FOLDER):
             skipped_failed += 1
@@ -141,7 +146,7 @@ def run_lifecycle_sweep(
     dry_run: bool = False,
     delete_receipt: Callable[..., bool] | None = None,
 ) -> LifecycleSweepRead:
-    """Mark pickup no-shows and overdue rentals in one race-safe transaction."""
+    """Mark no-shows and overdue rentals, then purge old GCash images."""
     run_at = ensure_aware(now or datetime.now(timezone.utc)).astimezone(timezone.utc)
 
     reserved_rows = session.exec(
@@ -151,7 +156,7 @@ def run_lifecycle_sweep(
         .where(Rental.released_at.is_(None))
         .where(Booking.expected_pickup_date <= run_at.astimezone(SHOP_TIME_ZONE).date())
         .order_by(Rental.id)
-        .with_for_update()
+        .with_for_update(skip_locked=True)
     ).all()
 
     no_show_rows: list[tuple[Rental, Booking]] = []
@@ -173,7 +178,7 @@ def run_lifecycle_sweep(
         .where(Rental.due_at.is_not(None))
         .where(Rental.due_at < run_at)
         .order_by(Rental.id)
-        .with_for_update()
+        .with_for_update(skip_locked=True)
     ).all()
 
     no_show_ids = [rental.id for rental, _ in no_show_rows]
@@ -239,6 +244,9 @@ def run_lifecycle_sweep(
             )
             overdue_updated += 1
 
+    if not dry_run and (no_show_updated or overdue_updated):
+        session.commit()
+
     receipts = _purge_stale_gcash_receipts(
         session,
         run_at=run_at,
@@ -246,7 +254,7 @@ def run_lifecycle_sweep(
         delete_receipt=delete_receipt or delete_cloudinary_image,
     )
 
-    if not dry_run and (no_show_updated or overdue_updated or receipts.updated):
+    if not dry_run and receipts.updated:
         session.commit()
 
     return LifecycleSweepRead(

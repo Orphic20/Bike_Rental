@@ -24,6 +24,7 @@ engine = create_engine(
     # Supabase's free tier has a low connection ceiling; stay well under it.
     pool_size=5,
     max_overflow=5,
+    connect_args={"connect_timeout": 10},
 )
 
 

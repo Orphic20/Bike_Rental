@@ -78,6 +78,7 @@ def delete_cloudinary_image(image_url: str | None, *, folder: str) -> bool:
             public_id,
             resource_type="image",
             invalidate=True,
+            timeout=8,
         )
     except Exception:
         logger.exception("Could not delete replaced Cloudinary image %s", public_id)

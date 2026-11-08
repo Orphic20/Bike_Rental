@@ -19,16 +19,33 @@ jobs:
           AUTOMATION_URL: ${{ secrets.AUTOMATION_URL }}
           AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
         run: |
+          set -euo pipefail
           test -n "$AUTOMATION_URL"
           test -n "$AUTOMATION_SECRET"
+          base="${AUTOMATION_URL%/}"
+
+          # Wake a sleeping Render instance first. Retries belong here, not on
+          # the POST: retrying a hung sweep stacks behind the request still
+          # running on the only web worker.
+          woke=0
+          for _ in 1 2 3 4 5 6; do
+            if curl --fail --silent --show-error \
+              --connect-timeout 15 \
+              --max-time 30 \
+              "$base/health"; then
+              woke=1
+              break
+            fi
+            sleep 10
+          done
+          test "$woke" -eq 1
+
           curl \
             --fail-with-body \
             --silent \
             --show-error \
-            --retry 4 \
-            --retry-all-errors \
-            --retry-delay 10 \
-            --max-time 300 \
+            --connect-timeout 20 \
+            --max-time 90 \
             --request POST \
             --header "X-Cron-Secret: $AUTOMATION_SECRET" \
-            "${AUTOMATION_URL%/}/internal/jobs/lifecycle-sweep"
+            "$base/internal/jobs/lifecycle-sweep"

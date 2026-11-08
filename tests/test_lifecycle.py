@@ -215,6 +215,30 @@ def test_cron_secret_guard(monkeypatch):
     assert require_cron_secret("expected") is None
 
 
+def test_rental_transitions_commit_before_receipt_purge():
+    booking = make_booking()
+    reserved = make_rental(booking)
+    stale = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.paid,
+        gcash_receipt_url=RECEIPT_URL,
+        gcash_ref_no="REF-30D",
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+    session = FakeSession([(reserved, booking)], [], [stale])
+
+    result = run_lifecycle_sweep(
+        session,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        delete_receipt=lambda image_url, *, folder: True,
+    )
+
+    assert reserved.status == RentalStatus.no_show
+    assert stale.gcash_receipt_url is None
+    assert result.receipts.updated == 1
+    assert session.commits == 2
+
+
 def test_old_gcash_receipt_is_deleted_and_reference_is_kept():
     booking = make_booking(
         payment_method=PaymentMethod.gcash,

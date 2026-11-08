@@ -56,6 +56,6 @@ def test_delete_cloudinary_image_uses_extracted_public_id(monkeypatch):
     assert calls == [
         (
             "munoz/bikes/old-bike",
-            {"resource_type": "image", "invalidate": True},
+            {"resource_type": "image", "invalidate": True, "timeout": 8},
         )
     ]

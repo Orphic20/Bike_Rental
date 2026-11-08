@@ -5,6 +5,7 @@ import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from sqlalchemy import text
 
 from bike_rental.auth import AdminUser
 from bike_rental.database import SessionDep
@@ -12,6 +13,12 @@ from bike_rental.lifecycle import run_lifecycle_sweep
 from bike_rental.models import LifecycleSweepRead
 
 router = APIRouter(tags=["jobs"])
+
+
+def _limit_sweep_waits(session) -> None:
+    """Fail fast instead of holding GitHub's HTTP request on a locked row."""
+    session.execute(text("SET LOCAL lock_timeout = '5s'"))
+    session.execute(text("SET LOCAL statement_timeout = '45s'"))
 
 
 def require_cron_secret(
@@ -38,4 +45,5 @@ def run_scheduled_lifecycle_sweep(
     session: SessionDep,
     _: None = Depends(require_cron_secret),
 ) -> LifecycleSweepRead:
+    _limit_sweep_waits(session)
     return run_lifecycle_sweep(session)
