@@ -7,7 +7,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 
-from bike_rental.auth import CurrentUser
+from bike_rental.auth import CurrentRole, CurrentUser
 from bike_rental.rate_limit import limit_bookings
 from bike_rental.availability import (
     BLOCKING_STATUSES,
@@ -18,6 +18,7 @@ from bike_rental.availability import (
 )
 from bike_rental.database import SessionDep
 from bike_rental.models import (
+    AuditLog,
     Bike,
     BikeStatus,
     Booking,
@@ -30,6 +31,7 @@ from bike_rental.models import (
     Rental,
     RentalRead,
     RentalStatus,
+    RoleName,
 )
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -245,29 +247,56 @@ def read_booking(
 def cancel_booking(
     booking_id: uuid.UUID,
     user: CurrentUser,
+    role: CurrentRole,
     session: SessionDep,
     _: None = Depends(limit_bookings),
 ) -> BookingRead:
-    booking = session.get(Booking, booking_id)
-    if booking is None or booking.user_id != user.id:
+    booking = session.exec(
+        select(Booking).where(Booking.id == booking_id).with_for_update()
+    ).first()
+    staff = role in (RoleName.staff, RoleName.admin)
+    if booking is None or (booking.user_id != user.id and not staff):
         raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.booking_type != BookingType.new:
+        raise HTTPException(
+            status_code=400, detail="Only reservations can be cancelled"
+        )
+    if booking.payment_status == PaymentStatus.cancelled:
+        raise HTTPException(status_code=409, detail="Booking is already cancelled")
 
     rentals = session.exec(
         select(Rental, Bike)
         .join(Bike, Bike.id == Rental.bike_id)
         .where(Rental.booking_id == booking.id)
         .order_by(Rental.id)
+        .with_for_update()
     ).all()
     if not rentals:
         raise HTTPException(status_code=400, detail="Booking has no rentals")
+    now = datetime.now(timezone.utc)
+    previous_payment = booking.payment_status
     for rental, _bike in rentals:
         if rental.status != RentalStatus.reserved:
             raise HTTPException(
                 status_code=400,
-                detail="Booking cannot be cancelled",
+                detail="Only unreleased reservations can be cancelled",
             )
         rental.status = RentalStatus.cancelled
+        rental.updated_at = now
     booking.payment_status = PaymentStatus.cancelled
+    booking.updated_at = now
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="booking.cancelled",
+            target_table="bookings",
+            target_id=booking.id,
+            details={
+                "booking_ref": booking.booking_ref,
+                "previous_payment_status": previous_payment.value,
+            },
+        )
+    )
     session.commit()
     session.refresh(booking)
     return _to_read(booking, list(rentals))

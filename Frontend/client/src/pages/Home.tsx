@@ -128,6 +128,8 @@ function rateFor(bike: Bike, rate: RateSelected): number {
 
 function canCancelBooking(booking: Booking): boolean {
   return (
+    booking.booking_type !== "extension" &&
+    booking.payment_status !== "cancelled" &&
     booking.rentals.length > 0 &&
     booking.rentals.every((rental) => rental.status === "reserved")
   );
@@ -1439,6 +1441,9 @@ function CustomerView({
                 <span>Total</span>
                 <strong>{formatPeso(confirmed.total_price)}</strong>
               </div>
+              <p className="confirmation-cancel-note">
+                You can cancel this reservation any time before pickup.
+              </p>
               <div className="ride-actions">
                 <button
                   className="primary-button"
@@ -1460,6 +1465,17 @@ function CustomerView({
                 >
                   Book another ride
                 </button>
+                {canCancelBooking(confirmed) && (
+                  <CancelRideButton
+                    booking={confirmed}
+                    onDone={() => {
+                      setConfirmed(null);
+                      setStep(1);
+                      setScreen("rides");
+                      bookings.reload();
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -2859,6 +2875,14 @@ function StaffView() {
                         Approve extension <ArrowUpRight size={15} />
                       </button>
                     )}
+                  {canCancelBooking(selected) && (
+                    <CancelRideButton
+                      booking={selected}
+                      onDone={() => {
+                        queue.reload();
+                      }}
+                    />
+                  )}
                 </div>
               </>
             ) : (
