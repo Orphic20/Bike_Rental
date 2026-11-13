@@ -143,6 +143,12 @@ function deskStatus(booking: StaffBooking): { label: string; tone: string } {
     return { label: "Cash at counter", tone: "clay" };
   }
   if (booking.payment_status === "rejected") {
+    if (
+      booking.rentals.length > 0 &&
+      booking.rentals.every((rental) => rental.status === "cancelled")
+    ) {
+      return { label: "Rejected", tone: "muted" };
+    }
     return { label: "GCash rejected", tone: "clay" };
   }
   if (booking.payment_status === "cancelled") {
@@ -1934,6 +1940,51 @@ function CustomerView({
   );
 }
 
+function StaffRejectButton({
+  booking,
+  disabled,
+  onDone,
+}: {
+  booking: Booking;
+  disabled?: boolean;
+  onDone: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const reject = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.rejectBooking(booking.id);
+      toast.success("Reservation rejected");
+      onDone();
+    } catch (cause) {
+      toast.error(cause instanceof ApiError ? cause.message : "Could not reject.");
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <button
+      className="ghost-action"
+      type="button"
+      disabled={busy || disabled}
+      onClick={reject}
+      onBlur={() => {
+        if (!busy) setConfirming(false);
+      }}
+    >
+      {busy ? "Rejecting…" : confirming ? "Confirm reject" : "Reject reservation"}
+    </button>
+  );
+}
+
 function CancelRideButton({
   booking,
   onDone,
@@ -2876,8 +2927,9 @@ function StaffView() {
                       </button>
                     )}
                   {canCancelBooking(selected) && (
-                    <CancelRideButton
+                    <StaffRejectButton
                       booking={selected}
+                      disabled={busy}
                       onDone={() => {
                         queue.reload();
                       }}

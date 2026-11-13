@@ -12,10 +12,12 @@ from bike_rental.availability import counter_closed_detail
 from bike_rental.database import SessionDep
 from bike_rental.lifecycle import rental_due_at
 from bike_rental.models import (
+    AuditLog,
     Bike,
     BikeStatus,
     Booking,
     BookingRead,
+    BookingType,
     GcashVerify,
     PaymentMethod,
     PaymentStatus,
@@ -133,6 +135,60 @@ def release_booking(
     session.refresh(booking)
     for rental, _ in rows:
         session.refresh(rental)
+    return _to_read(booking, list(rows))
+
+
+@router.post("/bookings/{booking_id}/reject", response_model=BookingRead)
+def reject_booking(
+    booking_id: uuid.UUID,
+    user: StaffUser,
+    session: SessionDep,
+) -> BookingRead:
+    booking = session.exec(
+        select(Booking).where(Booking.id == booking_id).with_for_update()
+    ).first()
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.booking_type != BookingType.new:
+        raise HTTPException(
+            status_code=400, detail="Only reservations can be rejected"
+        )
+
+    rows = session.exec(
+        select(Rental, Bike)
+        .join(Bike, Bike.id == Rental.bike_id)
+        .where(Rental.booking_id == booking.id)
+        .order_by(Rental.id)
+        .with_for_update()
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=400, detail="Booking has no rentals")
+    now = datetime.now(timezone.utc)
+    previous_payment = booking.payment_status
+    for rental, _bike in rows:
+        if rental.status != RentalStatus.reserved:
+            raise HTTPException(
+                status_code=400,
+                detail="Only unreleased reservations can be rejected",
+            )
+        rental.status = RentalStatus.cancelled
+        rental.updated_at = now
+    booking.payment_status = PaymentStatus.rejected
+    booking.updated_at = now
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="booking.rejected",
+            target_table="bookings",
+            target_id=booking.id,
+            details={
+                "booking_ref": booking.booking_ref,
+                "previous_payment_status": previous_payment.value,
+            },
+        )
+    )
+    session.commit()
+    session.refresh(booking)
     return _to_read(booking, list(rows))
 
 

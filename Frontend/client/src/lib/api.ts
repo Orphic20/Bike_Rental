@@ -239,6 +239,12 @@ export const api = {
       auth: true,
     }),
 
+  rejectBooking: (bookingId: string) =>
+    request<Booking>(`/staff/bookings/${bookingId}/reject`, {
+      method: "POST",
+      auth: true,
+    }),
+
   returnRental: (rentalId: string) =>
     request<Rental>(`/staff/rentals/${rentalId}/return`, {
       method: "POST",
