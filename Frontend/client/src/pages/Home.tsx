@@ -2762,7 +2762,14 @@ function StaffView() {
 
   if (opsScreen === "reservations") {
     const reservations = (queue.data ?? [])
-      .filter((row) => row.booking_type === "new")
+      .filter(
+        (row) =>
+          row.booking_type === "new" &&
+          row.payment_method === "cash" &&
+          row.payment_status === "unpaid_pending_pickup" &&
+          row.rentals.length > 0 &&
+          row.rentals.every((rental) => rental.status === "reserved"),
+      )
       .slice()
       .sort(byPickupDate);
 
@@ -2774,7 +2781,7 @@ function StaffView() {
             <div>
               <span className="micro-label">Staff decisions</span>
               <h1>Reservations.</h1>
-              <p>Upcoming first. Open a card to take payment, release, or reject.</p>
+              <p>Cash at the counter, upcoming first. Record exact payment or reject.</p>
             </div>
           </div>
           <div className="ops-toolbar">
@@ -2789,7 +2796,7 @@ function StaffView() {
           {queue.error && <AsyncNote tone="error" message={queue.error} onRetry={queue.reload} />}
           {queue.loading && !queue.data && <AsyncNote message="Loading reservations…" />}
           {!queue.loading && reservations.length === 0 && (
-            <AsyncNote message="No reservations yet." />
+            <AsyncNote message="No cash-at-counter reservations." />
           )}
           <div className="staff-extension-grid">
             {reservations.map((row) => {
