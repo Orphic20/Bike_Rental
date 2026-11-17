@@ -37,6 +37,13 @@ export class ApiError extends Error {
   }
 }
 
+function unreachable(): ApiError {
+  return new ApiError(
+    0,
+    `Cannot reach the API at ${BASE_URL}. It may be waking up — wait a few seconds and try again.`,
+  );
+}
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -67,24 +74,38 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers.Authorization = `Bearer ${token}`;
   }
 
+  const init: RequestInit = {
+    method,
+    headers,
+    body:
+      body === undefined
+        ? undefined
+        : isForm
+          ? (body as FormData)
+          : JSON.stringify(body),
+    signal,
+  };
+
   let response: Response;
   try {
-    response = await fetch(url, {
-      method,
-      headers,
-      body:
-        body === undefined
-          ? undefined
-          : isForm
-            ? (body as FormData)
-            : JSON.stringify(body),
-      signal,
-    });
+    response = await fetch(url, init);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
-    // A network-level failure here almost always means the API is not running
-    // or CORS_ORIGINS does not include this origin.
-    throw new ApiError(0, `Cannot reach the API at ${BASE_URL}.`);
+    // Render's free proxy 502s without CORS (browser reports a network error).
+    // Wake the service and retry once. FormData can only be sent once.
+    if (!isForm) {
+      try {
+        await fetch(`${BASE_URL}/health`, { method: "GET" });
+        response = await fetch(url, init);
+      } catch (retryError) {
+        if (retryError instanceof DOMException && retryError.name === "AbortError") {
+          throw retryError;
+        }
+        throw unreachable();
+      }
+    } else {
+      throw unreachable();
+    }
   }
 
   if (response.status === 204) return undefined as T;

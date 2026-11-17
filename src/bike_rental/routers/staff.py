@@ -5,6 +5,8 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlmodel import or_, select
 
 from bike_rental.auth import StaffUser
@@ -30,6 +32,25 @@ from bike_rental.models import (
 from bike_rental.routers.bookings import _to_read
 
 router = APIRouter(prefix="/staff", tags=["staff"])
+
+
+def _desk_fail_fast(session) -> None:
+    """Don't wait on a locked row until Render's proxy 502s without CORS."""
+    session.execute(text("SET LOCAL lock_timeout = '3s'"))
+    session.execute(text("SET LOCAL statement_timeout = '10s'"))
+
+
+def _http_for_db_wait(exc: OperationalError) -> HTTPException:
+    orig = str(getattr(exc, "orig", exc)).lower()
+    if "lock" in orig or "timeout" in orig or "canceling statement" in orig:
+        return HTTPException(
+            status_code=409,
+            detail="The desk is busy — try again in a moment",
+        )
+    return HTTPException(
+        status_code=503,
+        detail="The database did not respond in time",
+    )
 
 
 @router.get("/bookings", response_model=list[StaffBookingRead])
@@ -99,39 +120,71 @@ def release_booking(
     user: StaffUser,
     session: SessionDep,
 ) -> BookingRead:
-    booking = session.get(Booking, booking_id)
-    if booking is None:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    closed = counter_closed_detail(session)
-    if closed:
-        raise HTTPException(status_code=409, detail=closed)
-    if booking.amount_paid != booking.total_price:
-        raise HTTPException(status_code=400, detail="Booking is not fully paid")
+    _desk_fail_fast(session)
+    try:
+        booking = session.exec(
+            select(Booking).where(Booking.id == booking_id).with_for_update()
+        ).first()
+        if booking is None:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        closed = counter_closed_detail(session)
+        if closed:
+            raise HTTPException(status_code=409, detail=closed)
+        if booking.amount_paid != booking.total_price:
+            raise HTTPException(status_code=400, detail="Booking is not fully paid")
 
-    rows = session.exec(
-        select(Rental, Bike)
-        .join(Bike, Bike.id == Rental.bike_id)
-        .where(Rental.booking_id == booking.id)
-        .order_by(Rental.id)
-    ).all()
-    if not rows:
-        raise HTTPException(status_code=400, detail="Booking has no rentals")
+        rows = session.exec(
+            select(Rental, Bike)
+            .join(Bike, Bike.id == Rental.bike_id)
+            .where(Rental.booking_id == booking.id)
+            .order_by(Rental.id)
+            .with_for_update()
+        ).all()
+        if not rows:
+            raise HTTPException(status_code=400, detail="Booking has no rentals")
 
-    now = datetime.now(timezone.utc)
-    due_at = rental_due_at(now, booking.rate_selected)
+        now = datetime.now(timezone.utc)
+        due_at = rental_due_at(now, booking.rate_selected)
 
-    for rental, bike in rows:
-        if rental.status != RentalStatus.reserved:
-            raise HTTPException(
-                status_code=400,
-                detail="Booking has already been released",
+        for rental, bike in rows:
+            if rental.status != RentalStatus.reserved:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Booking has already been released",
+                )
+            rental.released_at = now
+            rental.due_at = due_at
+            rental.status = RentalStatus.active
+            rental.updated_at = now
+            bike.status = BikeStatus.rented
+            bike.updated_at = now
+
+        booking.updated_at = now
+        session.add(
+            AuditLog(
+                actor_id=user.id,
+                action="booking.released",
+                target_table="bookings",
+                target_id=booking.id,
+                details={
+                    "booking_ref": booking.booking_ref,
+                    "rental_ids": [str(rental.id) for rental, _ in rows],
+                },
             )
-        rental.released_at = now
-        rental.due_at = due_at
-        rental.status = RentalStatus.active
-        bike.status = BikeStatus.rented
+        )
+        session.commit()
+    except HTTPException:
+        raise
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Could not release these bikes",
+        ) from exc
+    except OperationalError as exc:
+        session.rollback()
+        raise _http_for_db_wait(exc) from exc
 
-    session.commit()
     session.refresh(booking)
     for rental, _ in rows:
         session.refresh(rental)
@@ -144,50 +197,58 @@ def reject_booking(
     user: StaffUser,
     session: SessionDep,
 ) -> BookingRead:
-    booking = session.exec(
-        select(Booking).where(Booking.id == booking_id).with_for_update()
-    ).first()
-    if booking is None:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    if booking.booking_type != BookingType.new:
-        raise HTTPException(
-            status_code=400, detail="Only reservations can be rejected"
-        )
-
-    rows = session.exec(
-        select(Rental, Bike)
-        .join(Bike, Bike.id == Rental.bike_id)
-        .where(Rental.booking_id == booking.id)
-        .order_by(Rental.id)
-        .with_for_update()
-    ).all()
-    if not rows:
-        raise HTTPException(status_code=400, detail="Booking has no rentals")
-    now = datetime.now(timezone.utc)
-    previous_payment = booking.payment_status
-    for rental, _bike in rows:
-        if rental.status != RentalStatus.reserved:
+    _desk_fail_fast(session)
+    try:
+        booking = session.exec(
+            select(Booking).where(Booking.id == booking_id).with_for_update()
+        ).first()
+        if booking is None:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        if booking.booking_type != BookingType.new:
             raise HTTPException(
-                status_code=400,
-                detail="Only unreleased reservations can be rejected",
+                status_code=400, detail="Only reservations can be rejected"
             )
-        rental.status = RentalStatus.cancelled
-        rental.updated_at = now
-    booking.payment_status = PaymentStatus.rejected
-    booking.updated_at = now
-    session.add(
-        AuditLog(
-            actor_id=user.id,
-            action="booking.rejected",
-            target_table="bookings",
-            target_id=booking.id,
-            details={
-                "booking_ref": booking.booking_ref,
-                "previous_payment_status": previous_payment.value,
-            },
+
+        rows = session.exec(
+            select(Rental, Bike)
+            .join(Bike, Bike.id == Rental.bike_id)
+            .where(Rental.booking_id == booking.id)
+            .order_by(Rental.id)
+            .with_for_update()
+        ).all()
+        if not rows:
+            raise HTTPException(status_code=400, detail="Booking has no rentals")
+        now = datetime.now(timezone.utc)
+        previous_payment = booking.payment_status
+        for rental, _bike in rows:
+            if rental.status != RentalStatus.reserved:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only unreleased reservations can be rejected",
+                )
+            rental.status = RentalStatus.cancelled
+            rental.updated_at = now
+        booking.payment_status = PaymentStatus.rejected
+        booking.updated_at = now
+        session.add(
+            AuditLog(
+                actor_id=user.id,
+                action="booking.rejected",
+                target_table="bookings",
+                target_id=booking.id,
+                details={
+                    "booking_ref": booking.booking_ref,
+                    "previous_payment_status": previous_payment.value,
+                },
+            )
         )
-    )
-    session.commit()
+        session.commit()
+    except HTTPException:
+        raise
+    except OperationalError as exc:
+        session.rollback()
+        raise _http_for_db_wait(exc) from exc
+
     session.refresh(booking)
     return _to_read(booking, list(rows))
 
@@ -198,6 +259,7 @@ def return_rental(
     user: StaffUser,
     session: SessionDep,
 ) -> RentalRead:
+    _desk_fail_fast(session)
     rental = session.get(Rental, rental_id)
     if not rental:
         raise HTTPException(status_code=404, detail="Rental not found")

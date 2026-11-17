@@ -993,7 +993,13 @@ button:not(:disabled), a { cursor: pointer; }
   .landing-fleet { padding-top: 80px; }
   .landing-section-head h2, .landing-way-copy h2, .landing-visit h2 { font-size: 55px; }
   .landing-feature-bike { grid-template-columns: 1fr; }
-  .landing-feature-bike > img { height: 235px; min-height: 235px; }
+  .landing-feature-bike > img {
+    height: auto;
+    min-height: 200px;
+    aspect-ratio: 16 / 10;
+    object-fit: contain;
+    object-position: center;
+  }
   .landing-feature-copy { padding: 23px; }
   .landing-route-row { gap: 13px; flex-wrap: wrap; }
   .landing-way { padding-left: 22px; padding-right: 22px; }
@@ -1034,7 +1040,29 @@ button:not(:disabled), a { cursor: pointer; }
 .selection-footer { display: flex; align-items: center; justify-content: space-between; gap: 25px; margin-top: 24px; padding: 22px 0 0; border-top: 1px solid #d6d9cf; }
 .selection-footer > div { display: flex; flex-direction: column; gap: 4px; }.selection-footer .micro-label { color: #a36d5b; }.selection-footer strong { color: #355047; font-family: "Fraunces", Georgia, serif; font-size: 20px; letter-spacing: -.045em; }.selection-footer > div > span:last-child { color: #8a968e; font-size: 10px; }
 @media (max-width: 950px) { .selection-page { padding-left: 5vw; padding-right: 5vw; grid-template-columns: 1fr; gap: 50px; }.selection-intro { max-width: 520px; }.selection-intro h1 { font-size: clamp(62px, 11vw, 90px); } }
-@media (max-width: 650px) { .selection-page { padding: 52px 22px 70px; gap: 37px; }.selection-topline { align-items: flex-start; flex-direction: column; gap: 7px; }.selection-grid { grid-template-columns: 1fr; gap: 13px; }.selection-card { display: grid; grid-template-columns: 45% 55%; }.selection-card-image { height: 100%; min-height: 205px; }.selection-card-copy { padding: 18px 16px; }.selection-footer { align-items: flex-start; flex-direction: column; }.selection-footer .primary-button { width: 100%; } }
+@media (max-width: 650px) {
+  .selection-page { padding: 52px 22px 70px; gap: 37px; }
+  .selection-topline { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .selection-grid { grid-template-columns: 1fr; gap: 13px; }
+  .selection-card { display: flex; flex-direction: column; }
+  .selection-card-image {
+    height: auto;
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+    display: grid;
+    place-items: center;
+  }
+  .selection-card-image img,
+  .selection-card-image .bike-art img {
+    object-fit: contain;
+    object-position: center;
+    mix-blend-mode: normal;
+  }
+  .selection-card.selected .selection-card-image img { transform: none; }
+  .selection-card-copy { padding: 18px 16px; }
+  .selection-footer { align-items: flex-start; flex-direction: column; }
+  .selection-footer .primary-button { width: 100%; }
+}
 
 /* Coastal Utility Atelier cart layer: make multi-bike selection feel like a calm, tactile counter service. */
 .style-switcher { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 22px; }
@@ -1045,7 +1073,27 @@ button:not(:disabled), a { cursor: pointer; }
 .style-switch:hover { transform: translateY(-2px); border-color: #b4c5b3; }.style-switch.active { background: #e5eee0; border-color: #819d83; color: #3f6353; }
 .selection-cart-brief { border-top: 1px solid #d6d9cf; margin-top: 45px; padding-top: 17px; display: flex; flex-direction: column; gap: 5px; }.selection-cart-brief strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 22px; letter-spacing: -.045em; }.selection-cart-brief span:last-child { color: #8b968e; font-size: 10px; }
 .inventory-grid { margin-top: 0; }.inventory-grid .selection-card { display: flex; flex-direction: column; }.inventory-grid .selection-card-image { display: block; width: 100%; border: 0; padding: 0; cursor: pointer; }.inventory-grid .selection-card-copy > div { align-items: center; flex-wrap: wrap; }.cart-action { margin-left: auto; border: 1px solid #c9d0c6; background: transparent; color: #486258; padding: 6px 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 800; transition: background .18s ease, color .18s ease, border-color .18s ease; }.cart-action:hover { background: #304a41; color: #fffdf6; border-color: #304a41; }.cart-action.added { background: #dfeada; border-color: #a4baa0; color: #41624f; }.inventory-grid .selection-card-copy p { min-height: 28px; }.inventory-grid .selection-card-copy h2 { font-size: 23px; }
-@media (max-width: 650px) { .style-switcher { gap: 6px; }.style-switch { padding: 10px 8px; }.style-switch span { font-size: 13px; }.style-switch small { font-size: 8px; }.selection-cart-brief { margin-top: 30px; }.inventory-grid { padding-bottom: 88px; }.inventory-grid .selection-card { display: grid; grid-template-columns: 45% 55%; min-height: 168px; }.inventory-grid .selection-card-image { min-height: 168px; }.inventory-grid .selection-card-copy { padding: 16px 14px; }.cart-action { margin-left: 0; margin-top: 8px; } }
+@media (max-width: 650px) {
+  .style-switcher { gap: 6px; }
+  .style-switch { padding: 10px 8px; }
+  .style-switch span { font-size: 13px; }
+  .style-switch small { font-size: 8px; }
+  .selection-cart-brief { margin-top: 30px; }
+  .inventory-grid { padding-bottom: 88px; }
+  .inventory-grid .selection-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .inventory-grid .selection-card-image {
+    width: 100%;
+    height: auto;
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+  }
+  .inventory-grid .selection-card-copy { padding: 16px 14px; }
+  .cart-action { margin-left: 0; margin-top: 8px; }
+}
 
 /* Coastal Utility Atelier page flow: style choice is a composed first page; inventory is a focused second page. */
 .style-page { min-height: calc(100vh - 106px); max-width: 1420px; margin: 0 auto; padding: 82px 7vw 50px; }
@@ -1053,8 +1101,38 @@ button:not(:disabled), a { cursor: pointer; }
 .style-cart-summary { border-top: 1px solid #b9c5b8; border-bottom: 1px solid #d6d9cf; padding: 16px 0 18px; display: flex; flex-direction: column; gap: 5px; }.style-cart-summary strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 24px; letter-spacing: -.05em; }.style-cart-summary span:last-child { color: #8c978f; font-size: 10px; }
 .style-page-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }.style-page-card { padding: 0; border: 1px solid #d9ded5; background: #fbf9f3; text-align: left; transition: transform .24s cubic-bezier(.23,1,.32,1), box-shadow .24s ease, border-color .2s ease; }.style-page-card:hover { transform: translateY(-6px); border-color: #9bb29d; box-shadow: 0 20px 34px rgba(52,75,61,.11); }.style-page-image { height: 280px; position: relative; overflow: hidden; }.style-page-card.selection-sage .style-page-image { background: #dce7d5; }.style-page-card.selection-clay .style-page-image { background: #ecd9d0; }.style-page-card.selection-forest .style-page-image { background: #d6e0d9; }.style-page-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.23,1,.32,1); }.style-page-card:hover .style-page-image img { transform: scale(1.055); }.style-page-image .selection-number { left: 18px; top: 16px; font-size: 20px; }.style-page-arrow { position: absolute; top: 16px; right: 17px; width: 30px; height: 30px; border: 1px solid rgba(63,85,73,.28); border-radius: 50%; display: grid; place-items: center; color: #486258; transition: background .2s ease, color .2s ease; }.style-page-card:hover .style-page-arrow { background: #304a41; color: #fffdf6; }
 .style-page-copy { padding: 21px 20px 22px; }.style-page-copy h2 { margin: 6px 0 9px; color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 30px; letter-spacing: -.065em; }.style-page-copy p { min-height: 43px; margin: 0 0 21px; color: #7d8b82; font-size: 11px; line-height: 1.55; }.style-page-link { display: inline-flex; align-items: center; gap: 8px; color: #c84c3d; border-top: 1px solid #dfe1d8; padding-top: 13px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }.style-page-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; padding-top: 14px; border-top: 1px solid #d6d9cf; color: #8b968e; text-transform: uppercase; letter-spacing: .13em; font-size: 9px; }
-@media (max-width: 850px) { .style-page { padding-left: 5vw; padding-right: 5vw; }.style-page-head { grid-template-columns: 1fr; gap: 28px; }.style-cart-summary { max-width: 280px; }.style-page-list { grid-template-columns: 1fr; max-width: 620px; }.style-page-card { display: grid; grid-template-columns: 42% 58%; }.style-page-image { height: 100%; min-height: 230px; }.style-page-copy { padding: 22px 20px; } }
-@media (max-width: 560px) { .style-page { padding: 52px 22px 70px; }.style-page-head h1 { font-size: 64px; }.style-page-card { display: block; }.style-page-image { height: 230px; }.style-page-footer { align-items: flex-start; flex-direction: column; gap: 16px; } }
+@media (max-width: 850px) {
+  .style-page { padding-left: 5vw; padding-right: 5vw; }
+  .style-page-head { grid-template-columns: 1fr; gap: 28px; }
+  .style-cart-summary { max-width: 280px; }
+  .style-page-list { grid-template-columns: 1fr; max-width: 620px; }
+  .style-page-card { display: flex; flex-direction: column; }
+  .style-page-image {
+    height: auto;
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+  }
+  .style-page-image img {
+    object-fit: contain;
+    object-position: center;
+  }
+  .style-page-copy { padding: 22px 20px; }
+}
+@media (max-width: 560px) {
+  .style-page { padding: 52px 22px 70px; }
+  .style-page-head h1 { font-size: 64px; }
+  .style-page-card { display: block; }
+  .style-page-image {
+    height: auto;
+    min-height: 200px;
+    aspect-ratio: 16 / 10;
+  }
+  .style-page-image img {
+    object-fit: contain;
+    object-position: center;
+  }
+  .style-page-footer { align-items: flex-start; flex-direction: column; gap: 16px; }
+}
 
 /* Coastal Utility Atelier summary layer: the cart reads like a small paper manifest, not a single-product hero. */
 .summary-top > div { display: flex; flex-direction: column; gap: 4px; }.summary-cart-count { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 19px; line-height: 1; letter-spacing: -.045em; }.summary-cart-list { display: flex; flex-direction: column; gap: 9px; margin: 18px 0 19px; max-height: 290px; overflow-y: auto; padding-right: 3px; }.summary-cart-item { display: grid; grid-template-columns: 49px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; background: #f5f3ea; border: 1px solid #e2e4da; }.summary-cart-thumb { height: 47px; overflow: hidden; background: #deead8; }.summary-cart-thumb img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; }.summary-cart-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }.summary-cart-copy .bike-kind { font-size: 8px; }.summary-cart-copy strong { overflow: hidden; color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 14px; line-height: 1.05; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }.summary-cart-copy small { overflow: hidden; color: #89958c; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.summary-cart-item > b { align-self: start; padding-top: 3px; color: #c84c3d; font-size: 10px; white-space: nowrap; }.summary-card .summary-details { padding-top: 15px; border-top: 1px solid #dfe1d8; }
