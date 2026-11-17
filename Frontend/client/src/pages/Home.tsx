@@ -84,7 +84,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type View = "landing" | "selection" | "customer" | "staff" | "admin";
@@ -2048,6 +2048,82 @@ function StaffRejectButton({
   );
 }
 
+const ImagePreviewContext = createContext<(src: string, alt: string) => void>(() => {});
+
+function ImagePreviewProvider({ children }: { children: React.ReactNode }) {
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
+
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [preview]);
+
+  return (
+    <ImagePreviewContext.Provider value={(src, alt) => setPreview({ src, alt })}>
+      {children}
+      {preview && (
+        <div
+          className="image-preview-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={preview.alt}
+          onClick={() => setPreview(null)}
+        >
+          <button
+            className="image-preview-close"
+            type="button"
+            aria-label="Close image"
+            onClick={() => setPreview(null)}
+          >
+            <X size={18} />
+          </button>
+          <img
+            className="image-preview-photo"
+            src={preview.src}
+            alt={preview.alt}
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
+    </ImagePreviewContext.Provider>
+  );
+}
+
+function ClickableBikePhoto({
+  type,
+  imageUrl,
+  alt,
+  className,
+}: {
+  type: BikeType | null;
+  imageUrl?: string | null;
+  alt: string;
+  className?: string;
+}) {
+  const open = useContext(ImagePreviewContext);
+  const art = <BikeArt type={type} imageUrl={imageUrl} alt={alt} />;
+  if (!imageUrl) {
+    return className ? <span className={className}>{art}</span> : art;
+  }
+  return (
+    <button
+      type="button"
+      className={className ? `${className} image-preview-trigger` : "image-preview-trigger"}
+      onClick={(event) => {
+        event.stopPropagation();
+        open(imageUrl, alt);
+      }}
+      aria-label={`View ${alt}`}
+    >
+      {art}
+    </button>
+  );
+}
+
 function ReservationBikes({ booking }: { booking: StaffBooking }) {
   if (booking.rentals.length === 0) {
     return <span className="reservation-bikes-empty">No bikes</span>;
@@ -2056,13 +2132,12 @@ function ReservationBikes({ booking }: { booking: StaffBooking }) {
     <div className="reservation-bikes">
       {booking.rentals.map((rental) => (
         <span className="reservation-bike" key={rental.id}>
-          <span className="reservation-bike-photo">
-            <BikeArt
-              type={rental.bike_type}
-              imageUrl={rental.bike_image_url}
-              alt={rental.bike_name ?? "Bike"}
-            />
-          </span>
+          <ClickableBikePhoto
+            className="reservation-bike-photo"
+            type={rental.bike_type}
+            imageUrl={rental.bike_image_url}
+            alt={rental.bike_name ?? "Bike"}
+          />
           <strong>{rental.bike_name ?? "Bike"}</strong>
         </span>
       ))}
@@ -2328,7 +2403,7 @@ function MyRides({
 
           {booking.rentals.map((rental) => (
             <div className="ride-bike-row" key={rental.id}>
-              <BikeArt
+              <ClickableBikePhoto
                 type={rental.bike_type}
                 imageUrl={rental.bike_image_url}
                 alt={rental.bike_name ?? "Bike"}
@@ -2611,7 +2686,7 @@ function StaffView() {
                     </Pill>
                   </div>
                   <div className="staff-extension-bike">
-                    <BikeArt
+                    <ClickableBikePhoto
                       type={rental?.bike_type ?? null}
                       imageUrl={rental?.bike_image_url}
                       alt={rental?.bike_name ?? "Rental bike"}
@@ -2723,13 +2798,12 @@ function StaffView() {
               return (
               <section className="rides-list-card" key={request.id}>
                 <div className="swap-current-bike">
-                  <span className="swap-bike-photo">
-                    <BikeArt
-                      type={currentBike?.type ?? "japanese"}
-                      imageUrl={currentBike?.image_url}
-                      alt={request.original_bike_name ?? "Current bike"}
-                    />
-                  </span>
+                  <ClickableBikePhoto
+                    className="swap-bike-photo"
+                    type={currentBike?.type ?? "japanese"}
+                    imageUrl={currentBike?.image_url}
+                    alt={request.original_bike_name ?? "Current bike"}
+                  />
                   <div>
                     <span className="micro-label">{request.customer_name ?? "Customer"}</span>
                     <h2>{request.original_bike_name ?? "Current bike"}</h2>
@@ -2822,7 +2896,7 @@ function StaffView() {
                   <div className="staff-reservation-bikes">
                     {row.rentals.map((rental) => (
                       <div className="staff-extension-bike" key={rental.id}>
-                        <BikeArt
+                        <ClickableBikePhoto
                           type={rental.bike_type}
                           imageUrl={rental.bike_image_url}
                           alt={rental.bike_name ?? "Bike"}
@@ -2976,8 +3050,9 @@ function StaffView() {
               {visible.map((booking) => {
                 const status = deskStatus(booking);
                 return (
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className={
                       selected?.id === booking.id
                         ? "reservation-row focused"
@@ -2985,6 +3060,12 @@ function StaffView() {
                     }
                     key={booking.id}
                     onClick={() => setSelectedId(booking.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedId(booking.id);
+                      }
+                    }}
                   >
                     <div className="reservation-time">
                       <strong>{formatDateLabel(booking.expected_pickup_date)}</strong>
@@ -3008,7 +3089,7 @@ function StaffView() {
                       </div>
                     </div>
                     <Pill tone={status.tone}>{status.label}</Pill>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -3054,13 +3135,12 @@ function StaffView() {
 
                 {selected.rentals.map((rental) => (
                   <div className="ride-bike-row" key={rental.id}>
-                    <span className="handoff-bike-photo">
-                      <BikeArt
-                        type={rental.bike_type}
-                        imageUrl={rental.bike_image_url}
-                        alt={rental.bike_name ?? "Bike"}
-                      />
-                    </span>
+                    <ClickableBikePhoto
+                      className="handoff-bike-photo"
+                      type={rental.bike_type}
+                      imageUrl={rental.bike_image_url}
+                      alt={rental.bike_name ?? "Bike"}
+                    />
                     <div className="ride-bike-copy">
                       <span className="bike-kind">
                         {rental.bike_type ? BIKE_TYPE_LABELS[rental.bike_type] : "Bike"}
@@ -4393,6 +4473,7 @@ export default function Home() {
   };
 
   return (
+    <ImagePreviewProvider>
     <div className="app-shell">
       <AppHeader view={view} setView={requestView} onRequestSignIn={() => setAuthOpen(true)} />
 
@@ -4460,5 +4541,6 @@ export default function Home() {
         </div>
       )}
     </div>
+    </ImagePreviewProvider>
   );
 }
