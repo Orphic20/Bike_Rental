@@ -135,6 +135,69 @@ function canCancelBooking(booking: Booking): boolean {
   );
 }
 
+function byPickupDate(a: StaffBooking, b: StaffBooking) {
+  const date = a.expected_pickup_date.localeCompare(b.expected_pickup_date);
+  if (date !== 0) return date;
+  return (a.booking_ref ?? a.id).localeCompare(b.booking_ref ?? b.id);
+}
+
+type OpsScreen = "queue" | "reservations" | "swaps" | "extensions";
+
+function StaffOpsNav({
+  screen,
+  onScreen,
+  initials,
+  name,
+  roleLabel,
+}: {
+  screen: OpsScreen;
+  onScreen: (screen: OpsScreen) => void;
+  initials: string;
+  name: string;
+  roleLabel: string;
+}) {
+  return (
+    <aside className="app-sidebar ops-sidebar">
+      <div className="ops-profile">
+        <span className="avatar staff-avatar">{initials || "ST"}</span>
+        <div>
+          <strong>{name}</strong>
+          <small>{roleLabel} · Bagong Sikat</small>
+        </div>
+      </div>
+      <div className="sidebar-nav-label">Operations</div>
+      <button
+        className={screen === "queue" ? "sidebar-link active" : "sidebar-link"}
+        type="button"
+        onClick={() => onScreen("queue")}
+      >
+        <LayoutDashboard size={17} /> Today&apos;s queue
+      </button>
+      <button
+        className={screen === "reservations" ? "sidebar-link active" : "sidebar-link"}
+        type="button"
+        onClick={() => onScreen("reservations")}
+      >
+        <CalendarDays size={17} /> Reservations
+      </button>
+      <button
+        className={screen === "swaps" ? "sidebar-link active" : "sidebar-link"}
+        type="button"
+        onClick={() => onScreen("swaps")}
+      >
+        <ClipboardCheck size={17} /> Swap requests
+      </button>
+      <button
+        className={screen === "extensions" ? "sidebar-link active" : "sidebar-link"}
+        type="button"
+        onClick={() => onScreen("extensions")}
+      >
+        <Clock3 size={17} /> Extension requests
+      </button>
+    </aside>
+  );
+}
+
 function deskStatus(booking: StaffBooking): { label: string; tone: string } {
   if (booking.payment_status === "pending_verification") {
     return { label: "GCash review", tone: "clay" };
@@ -1985,6 +2048,102 @@ function StaffRejectButton({
   );
 }
 
+function ReservationBikes({ booking }: { booking: StaffBooking }) {
+  if (booking.rentals.length === 0) {
+    return <span className="reservation-bikes-empty">No bikes</span>;
+  }
+  return (
+    <div className="reservation-bikes">
+      {booking.rentals.map((rental) => (
+        <span className="reservation-bike" key={rental.id}>
+          <span className="reservation-bike-photo">
+            <BikeArt
+              type={rental.bike_type}
+              imageUrl={rental.bike_image_url}
+              alt={rental.bike_name ?? "Bike"}
+            />
+          </span>
+          <strong>{rental.bike_name ?? "Bike"}</strong>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function StaffBookingActions({
+  booking,
+  busy,
+  fullButtons,
+  run,
+  onRejected,
+}: {
+  booking: StaffBooking;
+  busy: boolean;
+  fullButtons?: boolean;
+  run: (label: string, action: () => Promise<unknown>) => Promise<void>;
+  onRejected: () => void;
+}) {
+  const primary = fullButtons ? "primary-button full-button" : "primary-button";
+  return (
+    <>
+      {booking.payment_method === "cash" &&
+        booking.payment_status === "unpaid_pending_pickup" && (
+          <button
+            className={primary}
+            type="button"
+            disabled={busy}
+            onClick={() => void run("Cash recorded", () => api.recordCash(booking.id))}
+          >
+            Record cash payment <ArrowUpRight size={15} />
+          </button>
+        )}
+      {booking.payment_method === "gcash" &&
+        booking.payment_status === "pending_verification" && (
+          <>
+            <button
+              className={primary}
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run("GCash accepted", () => api.verifyGcash(booking.id, "accepted"))
+              }
+            >
+              Accept GCash <ArrowUpRight size={15} />
+            </button>
+            <button
+              className="ghost-action"
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run("GCash rejected", () => api.verifyGcash(booking.id, "rejected"))
+              }
+            >
+              Reject receipt
+            </button>
+          </>
+        )}
+      {booking.booking_type === "new" &&
+        booking.payment_status === "paid" &&
+        booking.rentals.length > 0 &&
+        booking.rentals.every((rental) => rental.status === "reserved") && (
+          <button
+            className={primary}
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              void run("Bikes released", () => api.releaseBooking(booking.id))
+            }
+          >
+            Release bikes <ArrowUpRight size={15} />
+          </button>
+        )}
+      {canCancelBooking(booking) && (
+        <StaffRejectButton booking={booking} disabled={busy} onDone={onRejected} />
+      )}
+    </>
+  );
+}
+
 function CancelRideButton({
   booking,
   onDone,
@@ -2325,7 +2484,7 @@ function auditActionLabel(action: string): string {
 
 function StaffView() {
   const { profile } = useAuth();
-  const [opsScreen, setOpsScreen] = useState<"queue" | "swaps" | "extensions">("queue");
+  const [opsScreen, setOpsScreen] = useState<OpsScreen>("queue");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "today" | "outstanding" | "pending">("today");
@@ -2345,19 +2504,19 @@ function StaffView() {
 
   const visible = useMemo(() => {
     const rows = queue.data ?? [];
-    if (tab === "today") return rows.filter((row) => row.expected_pickup_date === today);
-    if (tab === "outstanding") {
-      return rows.filter((row) =>
+    let next = rows;
+    if (tab === "today") next = rows.filter((row) => row.expected_pickup_date === today);
+    else if (tab === "outstanding") {
+      next = rows.filter((row) =>
         row.rentals.some((rental) => rental.status === "active" || rental.status === "overdue"),
       );
-    }
-    if (tab === "pending") {
-      return rows.filter(
+    } else if (tab === "pending") {
+      next = rows.filter(
         (row) =>
           row.payment_method === "gcash" && row.payment_status === "pending_verification",
       );
     }
-    return rows;
+    return [...next].sort(byPickupDate);
   }, [queue.data, tab, today]);
 
   const selected = visible.find((row) => row.id === selectedId) ?? visible[0] ?? null;
@@ -2382,6 +2541,12 @@ function StaffView() {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+  const opsNav = {
+    onScreen: setOpsScreen,
+    initials,
+    name: profile?.name || "Counter",
+    roleLabel: profile?.role === "admin" ? "Admin" : "Staff",
+  };
 
   const run = async (label: string, action: () => Promise<unknown>) => {
     setBusy(true);
@@ -2396,17 +2561,11 @@ function StaffView() {
     }
   };
 
-  const bikesLine = (booking: StaffBooking) =>
-    booking.booking_type === "extension"
-      ? "Rental extension"
-      : booking.rentals
-      .map((rental) => rental.bike_name ?? "Bike")
-      .join(", ") || "No bikes";
-
   if (opsScreen === "extensions") {
-    const extensions = (queue.data ?? []).filter(
-      (row) => row.booking_type === "extension",
-    );
+    const extensions = (queue.data ?? [])
+      .filter((row) => row.booking_type === "extension")
+      .slice()
+      .sort(byPickupDate);
     const rentalById = new Map(
       (queue.data ?? [])
         .flatMap((booking) => booking.rentals)
@@ -2415,25 +2574,7 @@ function StaffView() {
 
     return (
       <div className="product-layout ops-layout">
-        <aside className="app-sidebar ops-sidebar">
-          <div className="ops-profile">
-            <span className="avatar staff-avatar">{initials || "ST"}</span>
-            <div>
-              <strong>{profile?.name || "Counter"}</strong>
-              <small>{profile?.role === "admin" ? "Admin" : "Staff"} · Bagong Sikat</small>
-            </div>
-          </div>
-          <div className="sidebar-nav-label">Operations</div>
-          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("queue")}>
-            <LayoutDashboard size={17} /> Today&apos;s queue
-          </button>
-          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("swaps")}>
-            <ClipboardCheck size={17} /> Swap requests
-          </button>
-          <button className="sidebar-link active" type="button">
-            <Clock3 size={17} /> Extension requests
-          </button>
-        </aside>
+        <StaffOpsNav screen="extensions" {...opsNav} />
         <main className="product-main">
           <div className="page-heading ops-heading">
             <div>
@@ -2563,22 +2704,7 @@ function StaffView() {
 
     return (
       <div className="product-layout ops-layout">
-        <aside className="app-sidebar ops-sidebar">
-          <div className="ops-profile">
-            <span className="avatar staff-avatar">{initials || "ST"}</span>
-            <div><strong>{profile?.name || "Counter"}</strong><small>Staff · Bagong Sikat</small></div>
-          </div>
-          <div className="sidebar-nav-label">Operations</div>
-          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("queue")}>
-            <LayoutDashboard size={17} /> Today's queue
-          </button>
-          <button className="sidebar-link active" type="button">
-            <ClipboardCheck size={17} /> Swap requests
-          </button>
-          <button className="sidebar-link" type="button" onClick={() => setOpsScreen("extensions")}>
-            <Clock3 size={17} /> Extension requests
-          </button>
-        </aside>
+        <StaffOpsNav screen="swaps" {...opsNav} />
         <main className="product-main">
           <div className="page-heading ops-heading">
             <div><span className="micro-label">Staff decisions</span><h1>Swap requests.</h1><p>Assign an available bike or reject the request.</p></div>
@@ -2634,31 +2760,120 @@ function StaffView() {
     );
   }
 
+  if (opsScreen === "reservations") {
+    const reservations = (queue.data ?? [])
+      .filter((row) => row.booking_type === "new")
+      .slice()
+      .sort(byPickupDate);
+
+    return (
+      <div className="product-layout ops-layout">
+        <StaffOpsNav screen="reservations" {...opsNav} />
+        <main className="product-main">
+          <div className="page-heading ops-heading">
+            <div>
+              <span className="micro-label">Staff decisions</span>
+              <h1>Reservations.</h1>
+              <p>Upcoming first. Open a card to take payment, release, or reject.</p>
+            </div>
+          </div>
+          <div className="ops-toolbar">
+            <input
+              className="ops-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search name, email, or VC-…"
+              aria-label="Search reservations"
+            />
+          </div>
+          {queue.error && <AsyncNote tone="error" message={queue.error} onRetry={queue.reload} />}
+          {queue.loading && !queue.data && <AsyncNote message="Loading reservations…" />}
+          {!queue.loading && reservations.length === 0 && (
+            <AsyncNote message="No reservations yet." />
+          )}
+          <div className="staff-extension-grid">
+            {reservations.map((row) => {
+              const status = deskStatus(row);
+              const rowBusy = busy && selectedId === row.id;
+              const perform = async (label: string, action: () => Promise<unknown>) => {
+                setSelectedId(row.id);
+                await run(label, action);
+              };
+              return (
+                <section className="staff-extension-card" key={row.id}>
+                  <div className="card-title-row">
+                    <div>
+                      <span className="micro-label">
+                        {formatDateLabel(row.expected_pickup_date)} ·{" "}
+                        {row.booking_ref ?? row.id.slice(0, 8)}
+                      </span>
+                      <h2>{row.customer_name}</h2>
+                      <p className="handoff-email">{row.customer_email}</p>
+                    </div>
+                    <Pill tone={status.tone}>{status.label}</Pill>
+                  </div>
+                  <div className="staff-reservation-bikes">
+                    {row.rentals.map((rental) => (
+                      <div className="staff-extension-bike" key={rental.id}>
+                        <BikeArt
+                          type={rental.bike_type}
+                          imageUrl={rental.bike_image_url}
+                          alt={rental.bike_name ?? "Bike"}
+                        />
+                        <div>
+                          <span className="bike-kind">
+                            {rental.bike_type ? BIKE_TYPE_LABELS[rental.bike_type] : "Bike"}
+                          </span>
+                          <h3>{rental.bike_name ?? "Bike"}</h3>
+                          <p>{RENTAL_STATUS_LABELS[rental.status]}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <dl className="staff-extension-details">
+                    <div>
+                      <dt>Pickup</dt>
+                      <dd>{formatDateLabel(row.expected_pickup_date)}</dd>
+                    </div>
+                    <div>
+                      <dt>Rate</dt>
+                      <dd>{row.rate_selected === "weekly" ? "Weekly" : "Daily"}</dd>
+                    </div>
+                    <div>
+                      <dt>Exact total</dt>
+                      <dd>{formatPeso(row.total_price)}</dd>
+                    </div>
+                  </dl>
+                  {row.gcash_ref_no && <p className="handoff-meta">GCash ref: {row.gcash_ref_no}</p>}
+                  {row.gcash_receipt_url && (
+                    <a href={row.gcash_receipt_url} target="_blank" rel="noreferrer">
+                      <img
+                        className="staff-extension-receipt"
+                        src={row.gcash_receipt_url}
+                        alt="GCash receipt"
+                      />
+                    </a>
+                  )}
+                  <div className="staff-extension-actions">
+                    <StaffBookingActions
+                      booking={row}
+                      busy={rowBusy}
+                      run={perform}
+                      onRejected={queue.reload}
+                    />
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="product-layout ops-layout">
-      <aside className="app-sidebar ops-sidebar">
-        <div className="ops-profile">
-          <span className="avatar staff-avatar">{initials || "ST"}</span>
-          <div>
-            <strong>{profile?.name || "Counter"}</strong>
-            <small>{profile?.role === "admin" ? "Admin" : "Staff"} · Bagong Sikat</small>
-          </div>
-        </div>
-        <div className="sidebar-nav-label">Operations</div>
-        <button className="sidebar-link active" type="button">
-          <LayoutDashboard size={17} /> Today's queue
-        </button>
-        <button
-          className="sidebar-link"
-          type="button"
-          onClick={() => setOpsScreen("swaps")}
-        >
-          <ClipboardCheck size={17} /> Swap requests
-        </button>
-        <button className="sidebar-link" type="button" onClick={() => setOpsScreen("extensions")}>
-          <Clock3 size={17} /> Extension requests
-        </button>
-      </aside>
+      <StaffOpsNav screen="queue" {...opsNav} />
       <main className="product-main">
         <div className="page-heading ops-heading">
           <div>
@@ -2779,8 +2994,8 @@ function StaffView() {
                       </span>
                       <div>
                         <strong>{booking.customer_name}</strong>
+                        <ReservationBikes booking={booking} />
                         <span>
-                          {bikesLine(booking)} ·{" "}
                           {booking.payment_method === "cash" ? "Cash" : "GCash"}
                         </span>
                       </div>
@@ -2832,6 +3047,13 @@ function StaffView() {
 
                 {selected.rentals.map((rental) => (
                   <div className="ride-bike-row" key={rental.id}>
+                    <span className="handoff-bike-photo">
+                      <BikeArt
+                        type={rental.bike_type}
+                        imageUrl={rental.bike_image_url}
+                        alt={rental.bike_name ?? "Bike"}
+                      />
+                    </span>
                     <div className="ride-bike-copy">
                       <span className="bike-kind">
                         {rental.bike_type ? BIKE_TYPE_LABELS[rental.bike_type] : "Bike"}
@@ -2855,63 +3077,13 @@ function StaffView() {
                 ))}
 
                 <div className="handoff-stack">
-                  {selected.payment_method === "cash" &&
-                    selected.payment_status === "unpaid_pending_pickup" && (
-                      <button
-                        className="primary-button full-button"
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          run("Cash recorded", () => api.recordCash(selected.id))
-                        }
-                      >
-                        Record cash payment <ArrowUpRight size={15} />
-                      </button>
-                    )}
-                  {selected.payment_method === "gcash" &&
-                    selected.payment_status === "pending_verification" && (
-                      <>
-                        <button
-                          className="primary-button full-button"
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            run("GCash accepted", () =>
-                              api.verifyGcash(selected.id, "accepted"),
-                            )
-                          }
-                        >
-                          Accept GCash <ArrowUpRight size={15} />
-                        </button>
-                        <button
-                          className="ghost-action"
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            run("GCash rejected", () =>
-                              api.verifyGcash(selected.id, "rejected"),
-                            )
-                          }
-                        >
-                          Reject receipt
-                        </button>
-                      </>
-                    )}
-                  {selected.booking_type === "new" &&
-                    selected.payment_status === "paid" &&
-                    selected.rentals.length > 0 &&
-                    selected.rentals.every((rental) => rental.status === "reserved") && (
-                      <button
-                        className="primary-button full-button"
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          run("Bikes released", () => api.releaseBooking(selected.id))
-                        }
-                      >
-                        Release bikes <ArrowUpRight size={15} />
-                      </button>
-                    )}
+                  <StaffBookingActions
+                    booking={selected}
+                    busy={busy}
+                    fullButtons
+                    run={run}
+                    onRejected={queue.reload}
+                  />
                   {selected.booking_type === "extension" &&
                     selected.payment_status === "paid" &&
                     !selected.extension_applied_at && (
@@ -2926,15 +3098,6 @@ function StaffView() {
                         Approve extension <ArrowUpRight size={15} />
                       </button>
                     )}
-                  {canCancelBooking(selected) && (
-                    <StaffRejectButton
-                      booking={selected}
-                      disabled={busy}
-                      onDone={() => {
-                        queue.reload();
-                      }}
-                    />
-                  )}
                 </div>
               </>
             ) : (
