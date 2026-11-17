@@ -148,6 +148,29 @@ function byPickupDate(a: StaffBooking, b: StaffBooking) {
   return (a.booking_ref ?? a.id).localeCompare(b.booking_ref ?? b.id);
 }
 
+function queueActionRank(booking: StaffBooking): number {
+  const { label } = deskStatus(booking);
+  if (
+    label === "Cash at counter" ||
+    label === "GCash review" ||
+    label === "GCash rejected"
+  ) {
+    return 0;
+  }
+  if (label === "Ready to release") return 1;
+  if (label === "Overdue") return 2;
+  if (label === "Out on rent") return 3;
+  if (label === "Cancelled" || label === "Rejected") return 4;
+  if (label === "Returned") return 5;
+  return 6;
+}
+
+function byHandoffQueue(a: StaffBooking, b: StaffBooking) {
+  const rank = queueActionRank(a) - queueActionRank(b);
+  if (rank !== 0) return rank;
+  return byPickupDate(a, b);
+}
+
 type OpsScreen = "queue" | "reservations" | "swaps" | "extensions";
 
 function StaffOpsNav({
@@ -2628,7 +2651,7 @@ function StaffView() {
           row.payment_method === "gcash" && row.payment_status === "pending_verification",
       );
     }
-    return [...next].sort(byPickupDate);
+    return [...next].sort(byHandoffQueue);
   }, [queue.data, tab, today]);
 
   const selected = visible.find((row) => row.id === selectedId) ?? visible[0] ?? null;
