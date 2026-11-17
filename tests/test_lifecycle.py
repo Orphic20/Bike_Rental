@@ -118,6 +118,14 @@ def test_manila_cutoff_and_due_time_are_stored_as_utc():
     )
 
 
+def test_due_time_rolls_to_next_close_after_hours():
+    # 9:02 PM Manila — after the 7 PM close on a daily rental.
+    released = datetime(2026, 11, 17, 13, 2, tzinfo=timezone.utc)
+    assert rental_due_at(released, RateSelected.daily) == datetime(
+        2026, 11, 18, 11, tzinfo=timezone.utc
+    )
+
+
 def test_sweep_marks_no_show_and_overdue_and_writes_audits():
     booking = make_booking()
     reserved = make_rental(booking)

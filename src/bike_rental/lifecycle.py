@@ -43,10 +43,17 @@ def no_show_deadline(pickup_date: date) -> datetime:
 
 
 def rental_due_at(released_at: datetime, rate: RateSelected) -> datetime:
-    """Return 7 PM Manila on the final day of the selected rental period."""
+    """Return 7 PM Manila on the final day of the selected rental period.
+
+    A range lower bound cannot be after the upper bound. If staff release after
+    closing on the last day, roll due to the next 7 PM so the bike can still go
+    out.
+    """
     released_local = ensure_aware(released_at).astimezone(SHOP_TIME_ZONE)
     final_date = released_local.date() + timedelta(days=span_days(rate) - 1)
     local_due = datetime.combine(final_date, SHOP_CLOSING_TIME, tzinfo=SHOP_TIME_ZONE)
+    if local_due <= released_local:
+        local_due += timedelta(days=1)
     return local_due.astimezone(timezone.utc)
 
 

@@ -25,7 +25,14 @@ import {
   useSwapRequests,
 } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
-import { SHOP_ADDRESS, SHOP_MAPS_EMBED_URL, SHOP_MAPS_URL, WAIVER_VERSION } from "@/lib/constants";
+import {
+  SHOP_ADDRESS,
+  SHOP_MAPS_EMBED_URL,
+  SHOP_MAPS_URL,
+  WAIVER_VERSION,
+  WALK_IN_FLEET_NOTE,
+  WALK_IN_FULLY_BOOKED_NOTE,
+} from "@/lib/constants";
 import {
   formatDateLabel,
   formatDateTimeLabel,
@@ -240,6 +247,19 @@ function deskStatus(booking: StaffBooking): { label: string; tone: string } {
 
 function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: string }) {
   return <span className={`app-pill pill-${tone}`}>{children}</span>;
+}
+
+function WalkInFleetNote({
+  message = WALK_IN_FLEET_NOTE,
+}: {
+  message?: string;
+}) {
+  return (
+    <p className="walk-in-fleet-note">
+      <MapPin size={14} aria-hidden />
+      <span>{message}</span>
+    </p>
+  );
 }
 
 function AsyncNote({
@@ -732,8 +752,9 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           </div>
           <div>
             <p>
-              Three ways to move through the city. Every bike is tuned, tire-checked,
-              and ready to roll.
+              Three ways to move through the city. The bikes online are a share of
+              the fleet — if they’re booked, come to the kiosk and we’ll see what’s
+              free.
             </p>
             <a href="#landing-way" className="underlined-link">
               Find your route <ArrowUpRight size={13} />
@@ -865,6 +886,9 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           </span>
           <span>
             <Clock3 size={16} /> Every day · 8am—7pm
+          </span>
+          <span>
+            <BikeIcon size={16} /> Walk-ins welcome, even when the site looks full.
           </span>
           <button className="primary-button" onClick={() => onBook()}>
             Book a bike <ArrowUpRight size={14} />
@@ -1088,9 +1112,10 @@ function SelectionView({
               <em>kind</em> of ride.
             </h1>
             <p>
-              Explore the fleet first. Choose a style, then open its page to see every
-              bike we have in that shape.
+              Explore the bikes you can reserve online. Choose a style, then pick
+              one. More bikes stay at the kiosk if this list is full.
             </p>
+            <WalkInFleetNote />
           </div>
           <div className="style-cart-summary">
             <span className="micro-label">Your group booking</span>
@@ -1111,6 +1136,13 @@ function SelectionView({
           {BIKE_TYPES.map((type, index) => {
             const count = byType.get(type)?.length ?? 0;
             const free = byType.get(type)?.filter((bike) => bike.available).length ?? 0;
+            const availabilityLabel = loading
+              ? "Loading fleet…"
+              : pickupDate && free === 0 && count > 0
+                ? `0 of ${count} online · more at the kiosk`
+                : pickupDate
+                  ? `${free} of ${count} available`
+                  : `View ${count} bike${count === 1 ? "" : "s"}`;
             return (
               <button
                 key={type}
@@ -1129,12 +1161,7 @@ function SelectionView({
                   <h2>{BIKE_TYPE_LABELS[type]}</h2>
                   <p>{TYPE_COPY[type].blurb}</p>
                   <span className="style-page-link">
-                    {loading
-                      ? "Loading fleet…"
-                      : pickupDate
-                        ? `${free} of ${count} available`
-                        : `View ${count} bike${count === 1 ? "" : "s"}`}{" "}
-                    <ArrowRight size={14} />
+                    {availabilityLabel} <ArrowRight size={14} />
                   </span>
                 </div>
               </button>
@@ -1146,6 +1173,10 @@ function SelectionView({
   }
 
   const bikesOfType = byType.get(stylePage) ?? [];
+  const onlineBooked =
+    Boolean(pickupDate) &&
+    bikesOfType.length > 0 &&
+    bikesOfType.every((bike) => !bike.available);
 
   return (
     <>
@@ -1162,6 +1193,7 @@ function SelectionView({
           <p>
             Add one or build a group booking without leaving the catalogue.
           </p>
+          <WalkInFleetNote />
           <button className="selection-back" onClick={() => setStylePage(null)}>
             <ArrowRight size={15} /> Back to bike styles
           </button>
@@ -1187,8 +1219,12 @@ function SelectionView({
               <span />
             </div>
           ) : bikesOfType.length === 0 ? (
-            <AsyncNote message="No bikes of this style are in the fleet yet." />
+            <AsyncNote message="No bikes of this style are listed online yet. Walk in — we keep more at the kiosk." />
           ) : (
+            <>
+            {onlineBooked && (
+              <WalkInFleetNote message={WALK_IN_FULLY_BOOKED_NOTE} />
+            )}
             <div className="selection-grid inventory-grid">
               {bikesOfType.map((bike, index) => {
                 const selected = isInCart(bike.id);
@@ -1250,6 +1286,7 @@ function SelectionView({
                 );
               })}
             </div>
+            </>
           )}
 
           <div className="selection-footer booking-summary-sticky">
@@ -4302,7 +4339,15 @@ function AdminView() {
                     }
                   }}
                 >
-                  <strong>{bike.name}</strong>
+                  <div className="table-bike">
+                    <ClickableBikePhoto
+                      className="table-bike-photo"
+                      type={bike.type}
+                      imageUrl={bike.image_url}
+                      alt={bike.name}
+                    />
+                    <strong>{bike.name}</strong>
+                  </div>
                   <span>{BIKE_TYPE_LABELS[bike.type]}</span>
                   <span>{formatPeso(bike.daily_rate)}</span>
                   <Pill tone={bike.status === "available" ? "sage" : "muted"}>

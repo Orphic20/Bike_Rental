@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 from sqlmodel import or_, select
 
 from bike_rental.auth import StaffUser
@@ -175,7 +175,7 @@ def release_booking(
         session.commit()
     except HTTPException:
         raise
-    except IntegrityError as exc:
+    except (IntegrityError, DataError) as exc:
         session.rollback()
         raise HTTPException(
             status_code=409,
