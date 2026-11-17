@@ -149,8 +149,9 @@ once to:
 - mark unreleased eligible reservations as `no_show`;
 - mark past-due `active` rentals as `overdue`;
 - keep paid no-shows paid and skip GCash bookings pending verification;
-- delete GCash receipt images older than 30 days (reference numbers stay); and
-- write `rental.no_show`, `rental.overdue`, and `booking.receipt_purged` audit entries.
+- delete GCash receipt images and reference numbers older than 1 month;
+- write `rental.no_show`, `rental.overdue`, and `booking.receipt_purged` audit entries; and
+- delete audit log rows older than 6 months.
 
 The workflow does not retry a hung POST. Apply the Supabase migrations before
 enabling it. Then configure:

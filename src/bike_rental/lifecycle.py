@@ -5,11 +5,12 @@ from collections.abc import Callable
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 
 from bike_rental.availability import ensure_aware, span_days
 from bike_rental.models import (
     AuditLog,
+    AuditPurgeRead,
     Booking,
     LifecycleSweepRead,
     LifecycleTransitionRead,
@@ -29,6 +30,8 @@ RECEIPT_FOLDER = "munoz/receipts"
 RECEIPT_RETENTION = timedelta(days=30)
 RECEIPT_PURGE_LIMIT = 10
 RECEIPT_PURGE_BUDGET = timedelta(seconds=25)
+AUDIT_RETENTION = timedelta(days=182)
+AUDIT_PURGE_LIMIT = 200
 
 NO_SHOW_PAYMENT_STATUSES = (
     PaymentStatus.unpaid_pending_pickup,
@@ -83,14 +86,19 @@ def _purge_stale_gcash_receipts(
     dry_run: bool,
     delete_receipt: Callable[..., bool],
 ) -> ReceiptPurgeRead:
-    """Remove Cloudinary GCash images older than 30 days; keep the reference number."""
+    """Remove Cloudinary GCash images and reference numbers older than 1 month."""
     cutoff = run_at - RECEIPT_RETENTION
     rows = session.exec(
         select(Booking)
         .where(Booking.payment_method == PaymentMethod.gcash)
-        .where(Booking.gcash_receipt_url.is_not(None))
         .where(Booking.created_at.is_not(None))
         .where(Booking.created_at <= cutoff)
+        .where(
+            or_(
+                Booking.gcash_receipt_url.is_not(None),
+                Booking.gcash_ref_no.is_not(None),
+            )
+        )
         .order_by(Booking.id)
         .limit(RECEIPT_PURGE_LIMIT)
     ).all()
@@ -106,7 +114,7 @@ def _purge_stale_gcash_receipts(
             continue
         if ensure_aware(booking.created_at) > cutoff:
             continue
-        if not booking.gcash_receipt_url:
+        if not booking.gcash_receipt_url and not booking.gcash_ref_no:
             continue
         if booking.payment_status == PaymentStatus.pending_verification:
             skipped_pending += 1
@@ -117,10 +125,11 @@ def _purge_stale_gcash_receipts(
         if datetime.now(timezone.utc) >= deadline:
             break
         receipt_url = booking.gcash_receipt_url
-        if not delete_receipt(receipt_url, folder=RECEIPT_FOLDER):
+        if receipt_url and not delete_receipt(receipt_url, folder=RECEIPT_FOLDER):
             skipped_failed += 1
             continue
         booking.gcash_receipt_url = None
+        booking.gcash_ref_no = None
         booking.updated_at = run_at
         session.add(booking)
         session.add(
@@ -132,7 +141,6 @@ def _purge_stale_gcash_receipts(
                 details={
                     "booking_ref": booking.booking_ref,
                     "created_at": ensure_aware(booking.created_at).isoformat(),
-                    "gcash_ref_no": booking.gcash_ref_no,
                 },
             )
         )
@@ -147,6 +155,41 @@ def _purge_stale_gcash_receipts(
     )
 
 
+def _purge_stale_audit_logs(
+    session: Session,
+    *,
+    run_at: datetime,
+    dry_run: bool,
+) -> AuditPurgeRead:
+    """Delete audit rows older than 6 months. Do not write a replacement log."""
+    cutoff = run_at - AUDIT_RETENTION
+    rows = session.exec(
+        select(AuditLog)
+        .where(AuditLog.created_at.is_not(None))
+        .where(AuditLog.created_at <= cutoff)
+        .order_by(AuditLog.created_at, AuditLog.id)
+        .limit(AUDIT_PURGE_LIMIT)
+    ).all()
+
+    matched: list[AuditLog] = []
+    for log in rows:
+        if log.created_at is None:
+            continue
+        if ensure_aware(log.created_at) > cutoff:
+            continue
+        matched.append(log)
+
+    if not dry_run:
+        for log in matched:
+            session.delete(log)
+
+    return AuditPurgeRead(
+        matched=len(matched),
+        updated=0 if dry_run else len(matched),
+        audit_ids=[log.id for log in matched],
+    )
+
+
 def run_lifecycle_sweep(
     session: Session,
     *,
@@ -154,7 +197,7 @@ def run_lifecycle_sweep(
     dry_run: bool = False,
     delete_receipt: Callable[..., bool] | None = None,
 ) -> LifecycleSweepRead:
-    """Mark no-shows and overdue rentals, then purge old GCash images."""
+    """Mark no-shows and overdue rentals, then drop old receipts and audits."""
     run_at = ensure_aware(now or datetime.now(timezone.utc)).astimezone(timezone.utc)
 
     reserved_rows = session.exec(
@@ -265,6 +308,10 @@ def run_lifecycle_sweep(
     if not dry_run and receipts.updated:
         session.commit()
 
+    audits = _purge_stale_audit_logs(session, run_at=run_at, dry_run=dry_run)
+    if not dry_run and audits.updated:
+        session.commit()
+
     return LifecycleSweepRead(
         dry_run=dry_run,
         run_at=run_at,
@@ -280,4 +327,5 @@ def run_lifecycle_sweep(
             rental_ids=overdue_ids,
         ),
         receipts=receipts,
+        audits=audits,
     )

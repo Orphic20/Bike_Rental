@@ -548,6 +548,12 @@ class ReceiptPurgeRead(SQLModel):
     booking_ids: list[uuid.UUID] = []
 
 
+class AuditPurgeRead(SQLModel):
+    matched: int
+    updated: int
+    audit_ids: list[uuid.UUID] = []
+
+
 class LifecycleSweepRead(SQLModel):
     dry_run: bool
     run_at: datetime
@@ -555,6 +561,7 @@ class LifecycleSweepRead(SQLModel):
     no_show: LifecycleTransitionRead
     overdue: LifecycleTransitionRead
     receipts: ReceiptPurgeRead
+    audits: AuditPurgeRead
 
 
 class StaffBookingRead(BookingRead):

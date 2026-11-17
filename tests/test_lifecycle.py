@@ -42,6 +42,7 @@ class FakeSession:
     def __init__(self, *result_sets):
         self.result_sets = list(result_sets)
         self.added = []
+        self.deleted = []
         self.commits = 0
 
     def exec(self, _statement):
@@ -51,6 +52,9 @@ class FakeSession:
 
     def add(self, value):
         self.added.append(value)
+
+    def delete(self, value):
+        self.deleted.append(value)
 
     def commit(self):
         self.commits += 1
@@ -85,6 +89,18 @@ def make_booking(
         gcash_ref_no=gcash_ref_no,
         expected_pickup_date=date(2026, 10, 5),
         rate_selected=RateSelected.daily,
+        created_at=created_at,
+    )
+
+
+def make_audit(*, created_at) -> AuditLog:
+    return AuditLog(
+        id=uuid.uuid4(),
+        actor_id=None,
+        action="booking.released",
+        target_table="bookings",
+        target_id=uuid.uuid4(),
+        details={"booking_ref": "VC-OLD"},
         created_at=created_at,
     )
 
@@ -243,16 +259,24 @@ def test_rental_transitions_commit_before_receipt_purge():
 
     assert reserved.status == RentalStatus.no_show
     assert stale.gcash_receipt_url is None
+    assert stale.gcash_ref_no is None
     assert result.receipts.updated == 1
     assert session.commits == 2
 
 
-def test_old_gcash_receipt_is_deleted_and_reference_is_kept():
+def test_old_gcash_receipt_and_reference_are_cleared():
     booking = make_booking(
         payment_method=PaymentMethod.gcash,
         payment_status=PaymentStatus.paid,
         gcash_receipt_url=RECEIPT_URL,
         gcash_ref_no="REF-30D",
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+    leftover = make_booking(
+        payment_method=PaymentMethod.gcash,
+        payment_status=PaymentStatus.paid,
+        gcash_receipt_url=None,
+        gcash_ref_no="REF-LEFT",
         created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
     )
     deleted = []
@@ -261,7 +285,7 @@ def test_old_gcash_receipt_is_deleted_and_reference_is_kept():
         deleted.append((image_url, folder))
         return True
 
-    session = FakeSession([], [], [booking])
+    session = FakeSession([], [], [booking, leftover])
     result = run_lifecycle_sweep(
         session,
         now=datetime(2026, 10, 13, tzinfo=timezone.utc),
@@ -269,14 +293,15 @@ def test_old_gcash_receipt_is_deleted_and_reference_is_kept():
     )
 
     assert booking.gcash_receipt_url is None
-    assert booking.gcash_ref_no == "REF-30D"
-    assert result.receipts.updated == 1
-    assert result.receipts.booking_ids == [booking.id]
+    assert booking.gcash_ref_no is None
+    assert leftover.gcash_ref_no is None
+    assert result.receipts.updated == 2
+    assert result.receipts.booking_ids == [booking.id, leftover.id]
     assert deleted == [(RECEIPT_URL, "munoz/receipts")]
     assert session.commits == 1
     assert [
         item.action for item in session.added if isinstance(item, AuditLog)
-    ] == ["booking.receipt_purged"]
+    ] == ["booking.receipt_purged", "booking.receipt_purged"]
 
 
 def test_recent_and_pending_gcash_receipts_are_kept():
@@ -308,7 +333,9 @@ def test_recent_and_pending_gcash_receipts_are_kept():
     )
 
     assert recent.gcash_receipt_url == RECEIPT_URL
+    assert recent.gcash_ref_no == "REF-NEW"
     assert pending.gcash_receipt_url == RECEIPT_URL
+    assert pending.gcash_ref_no == "REF-PEND"
     assert result.receipts.matched == 0
     assert result.receipts.skipped_pending_verification == 1
     assert deleted == []
@@ -334,6 +361,7 @@ def test_receipt_purge_dry_run_and_failed_delete_keep_the_url():
     assert dry_result.receipts.matched == 1
     assert dry_result.receipts.updated == 0
     assert booking.gcash_receipt_url == RECEIPT_URL
+    assert booking.gcash_ref_no == "REF-KEEP"
     assert dry.commits == 0
 
     failed = FakeSession([], [], [booking])
@@ -345,4 +373,44 @@ def test_receipt_purge_dry_run_and_failed_delete_keep_the_url():
     assert failed_result.receipts.skipped_failed == 1
     assert failed_result.receipts.updated == 0
     assert booking.gcash_receipt_url == RECEIPT_URL
+    assert booking.gcash_ref_no == "REF-KEEP"
     assert failed.commits == 0
+
+
+def test_audit_logs_older_than_6_months_are_deleted():
+    stale = make_audit(created_at=datetime(2026, 4, 1, tzinfo=timezone.utc))
+    recent = make_audit(created_at=datetime(2026, 9, 1, tzinfo=timezone.utc))
+    session = FakeSession([], [], [], [stale, recent])
+
+    result = run_lifecycle_sweep(
+        session,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+    )
+
+    assert result.audits.updated == 1
+    assert result.audits.audit_ids == [stale.id]
+    assert session.deleted == [stale]
+    assert session.commits == 1
+
+
+def test_recent_audit_logs_and_dry_run_are_kept():
+    stale = make_audit(created_at=datetime(2026, 4, 1, tzinfo=timezone.utc))
+    dry = FakeSession([], [], [], [stale])
+    dry_result = run_lifecycle_sweep(
+        dry,
+        now=datetime(2026, 10, 13, tzinfo=timezone.utc),
+        dry_run=True,
+    )
+    assert dry_result.audits.matched == 1
+    assert dry_result.audits.updated == 0
+    assert dry.deleted == []
+    assert dry.commits == 0
+
+    kept = FakeSession([], [], [], [stale])
+    kept_result = run_lifecycle_sweep(
+        kept,
+        now=datetime(2026, 9, 29, tzinfo=timezone.utc),
+    )
+    assert kept_result.audits.updated == 0
+    assert kept.deleted == []
+    assert kept.commits == 0

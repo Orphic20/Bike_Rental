@@ -156,7 +156,7 @@ Use `numeric(10,2)` for all rates, prices, payments, refunds, and late fees. Add
 
 A scheduled lifecycle sweep runs after the 7:00 PM Asia/Manila shop cutoff. It marks eligible unreleased reservations as `no_show`; paid bookings stay paid, GCash bookings pending verification remain reserved for Staff review, and unpaid cash bookings become cancelled. Reserved bikes already retain the `available` inventory status, so releasing the availability hold requires only the rental-status transition.
 
-The same sweep marks active rentals as `overdue` after `due_at` passes. Rental due times are 7:00 PM Asia/Manila on the final rental day. Both transitions are idempotent and write system audit entries. If late fees are enabled later, calculate them according to the configured policy, require exact payment, and avoid charging the same period twice.
+The same sweep marks active rentals as `overdue` after `due_at` passes. Rental due times are 7:00 PM Asia/Manila on the final rental day. Both transitions are idempotent and write system audit entries. GCash receipt images and reference numbers older than 1 month are deleted. Booking and rental rows are kept. Audit log rows older than 6 months are deleted. If late fees are enabled later, calculate them according to the configured policy, require exact payment, and avoid charging the same period twice.
 
 ## 10. Implementation Status
 
