@@ -686,7 +686,7 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           </h1>
           <p>
             Good bikes for slow mornings, salty air, and every unexpected turn. Pick
-            one up by the kiosk and make a day of it.
+            one up by the counter and make a day of it.
           </p>
           <div className="landing-actions">
             <button className="primary-button landing-cta" onClick={() => onBook()}>
@@ -753,7 +753,7 @@ function LandingView({ onBook }: { onBook: (type?: BikeType) => void }) {
           <div>
             <p>
               Three ways to move through the city. The bikes online are a share of
-              the fleet — if they’re booked, come to the kiosk and we’ll see what’s
+              the fleet — if they’re booked, come to the counter and we’ll see what’s
               free.
             </p>
             <a href="#landing-way" className="underlined-link">
@@ -1113,7 +1113,7 @@ function SelectionView({
             </h1>
             <p>
               Explore the bikes you can reserve online. Choose a style, then pick
-              one. More bikes stay at the kiosk if this list is full.
+              one. More bikes stay at the counter if this list is full.
             </p>
             <WalkInFleetNote />
           </div>
@@ -1139,7 +1139,7 @@ function SelectionView({
             const availabilityLabel = loading
               ? "Loading fleet…"
               : pickupDate && free === 0 && count > 0
-                ? `0 of ${count} online · more at the kiosk`
+                ? `0 of ${count} online · more at the counter`
                 : pickupDate
                   ? `${free} of ${count} available`
                   : `View ${count} bike${count === 1 ? "" : "s"}`;
@@ -1219,7 +1219,7 @@ function SelectionView({
               <span />
             </div>
           ) : bikesOfType.length === 0 ? (
-            <AsyncNote message="No bikes of this style are listed online yet. Walk in — we keep more at the kiosk." />
+            <AsyncNote message="No bikes of this style are listed online yet. Walk in — we keep more at the counter." />
           ) : (
             <>
             {onlineBooked && (
@@ -1842,7 +1842,7 @@ function CustomerView({
                       <span className="payment-radio" />
                       <span>
                         <strong>Cash at pickup</strong>
-                        <small>Pay the exact total when you arrive at the kiosk.</small>
+                        <small>Pay the exact total when you arrive at the counter.</small>
                       </span>
                       <span className="payment-icon">
                         <WalletCards size={18} />
@@ -1929,7 +1929,7 @@ function CustomerView({
                   </span>
                   <span className="step-overline">Step 05 / 05</span>
                   <h2>Review your reservation.</h2>
-                  <p>One last look before we hold your bikes at the kiosk.</p>
+                  <p>One last look before we hold your bikes at the counter.</p>
                   <div className="review-list">
                     <div>
                       <span>Bikes</span>

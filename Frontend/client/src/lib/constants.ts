@@ -8,8 +8,8 @@ export const SHOP_MAPS_URL = "https://maps.app.goo.gl/kTbfQiib7GWLJNne8";
 export const SHOP_MAPS_EMBED_URL =
   "https://www.google.com/maps?q=15.7322803,120.9238934&z=18&output=embed";
 
-/** Online catalogue is a subset of the kiosk fleet. */
+/** Online catalogue is a subset of the counter fleet. */
 export const WALK_IN_FLEET_NOTE =
-  "Only some of our bikes are listed online. If this catalogue is fully booked, walk in — we keep more at the kiosk.";
+  "Only some of our bikes are listed online. If this catalogue is fully booked, walk in — we keep more at the counter.";
 export const WALK_IN_FULLY_BOOKED_NOTE =
-  "Every bike listed online is reserved for this date. Walk in anyway — extra bikes at the kiosk are not shown here.";
+  "Every bike listed online is reserved for this date. Walk in anyway — extra bikes at the counter are not shown here.";
