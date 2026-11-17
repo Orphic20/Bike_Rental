@@ -23,6 +23,7 @@ from bike_rental.models import (
 from bike_rental.routers.uploads import delete_cloudinary_image
 
 SHOP_TIME_ZONE = ZoneInfo("Asia/Manila")
+SHOP_OPENING_TIME = time(8, 0)
 SHOP_CLOSING_TIME = time(19, 0)
 RECEIPT_FOLDER = "munoz/receipts"
 RECEIPT_RETENTION = timedelta(days=30)

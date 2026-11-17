@@ -76,6 +76,7 @@ export interface Booking {
   id: string;
   booking_ref: string | null;
   expected_pickup_date: string;
+  expected_pickup_time: string | null;
   rate_selected: RateSelected;
   total_price: string;
   amount_paid: string;
@@ -100,6 +101,7 @@ export interface StaffBooking extends Booking {
 export interface BookingCreate {
   bikes: { bike_id: string }[];
   expected_pickup_date: string;
+  expected_pickup_time: string;
   rate_selected: RateSelected;
   payment_method: PaymentMethod;
   gcash_ref_no?: string | null;

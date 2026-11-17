@@ -8,6 +8,21 @@ export const SHOP_MAPS_URL = "https://maps.app.goo.gl/kTbfQiib7GWLJNne8";
 export const SHOP_MAPS_EMBED_URL =
   "https://www.google.com/maps?q=15.7322803,120.9238934&z=18&output=embed";
 
+/** Counter hours used for estimated pickup slots (Asia/Manila). */
+export const SHOP_OPEN_TIME = "08:00";
+export const SHOP_CLOSE_TIME = "19:00";
+export const DEFAULT_PICKUP_TIME = "09:30";
+
+export const PICKUP_TIME_SLOTS: string[] = (() => {
+  const slots: string[] = [];
+  for (let hour = 8; hour <= 18; hour += 1) {
+    const prefix = String(hour).padStart(2, "0");
+    slots.push(`${prefix}:00`, `${prefix}:30`);
+  }
+  slots.push(SHOP_CLOSE_TIME);
+  return slots;
+})();
+
 /** Online catalogue is a subset of the counter fleet. */
 export const WALK_IN_FLEET_NOTE =
   "Only some of our bikes are listed online. If this catalogue is fully booked, walk in — we keep more at the counter.";

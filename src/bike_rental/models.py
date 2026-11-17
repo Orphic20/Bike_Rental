@@ -1,11 +1,11 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Literal, Optional
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, Computed, DateTime, ForeignKey, Numeric, Text, func
+from sqlalchemy import Column, Computed, DateTime, ForeignKey, Numeric, Text, Time, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.types import TypeDecorator
 
@@ -206,6 +206,9 @@ class Booking(SQLModel, table=True):
     gcash_receipt_url: Optional[str] = None
 
     expected_pickup_date: date
+    expected_pickup_time: Optional[time] = Field(
+        default=None, sa_column=Column(Time, nullable=True)
+    )
     rate_selected: RateSelected = Field(
         sa_column=Column(EnumText(RateSelected), nullable=False)
     )
@@ -391,6 +394,7 @@ class BookingItemCreate(SQLModel):
 class BookingCreate(SQLModel):
     bikes: list[BookingItemCreate]
     expected_pickup_date: date
+    expected_pickup_time: time
     rate_selected: RateSelected
     payment_method: PaymentMethod
     gcash_ref_no: Optional[str] = None
@@ -423,6 +427,7 @@ class BookingRead(SQLModel):
     id: uuid.UUID
     booking_ref: Optional[str]
     expected_pickup_date: date
+    expected_pickup_time: Optional[time] = None
     rate_selected: RateSelected
     total_price: Decimal = Field(schema_extra={"example": "250.00"})
     amount_paid: Decimal = Field(schema_extra={"example": "0.00"})

@@ -63,7 +63,11 @@ def list_staff_bookings(
     stmt = (
         select(Booking, User)
         .join(User, User.id == Booking.user_id)
-        .order_by(Booking.expected_pickup_date, Booking.created_at)
+        .order_by(
+            Booking.expected_pickup_date,
+            Booking.expected_pickup_time,
+            Booking.created_at,
+        )
     )
     if q and q.strip():
         term = f"%{q.strip()}%"

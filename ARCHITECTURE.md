@@ -4,7 +4,7 @@
 
 Muñoz Bike Rental rents three bike types: **Japanese**, **Folding**, and **Mountain**. Customers can browse the fleet, choose multiple bikes for one group booking, select a daily or weekly rate, and choose cash or GCash.
 
-Future reservations require a **pickup date only**. The return date is not entered during reservation. The rental due time is established when Staff releases the bike or records the rental duration.
+Future reservations require a **pickup date** and an **estimated pickup time**. The return date is not entered during reservation. The rental due time is established when Staff releases the bike or records the rental duration.
 
 The system does not collect mobile numbers, hold IDs as collateral, or require formal return-inspection records. Staff may visually verify the customer’s name against the physical ID presented at pickup, but the application does not store the ID or track its custody.
 
@@ -16,7 +16,7 @@ Customers sign in and maintain a profile containing their authenticated user ID,
 
 The landing page opens separate inventory pages for Japanese, Folding, and Mountain bikes. Each inventory page contains individual bikes and an **Add to Group Booking** action. A sticky booking summary shows selected bikes, pickup context, rate, and exact total.
 
-When the first bike is selected, the customer chooses either **Book today** or **Reserve for later**. Reserve for later requests only a pickup date. The customer then reviews the bikes, selects Daily or Weekly, confirms their name and email, accepts the waiver and Terms, chooses Cash or GCash, and submits the booking.
+When the first bike is selected, the customer chooses either **Book today** or **Reserve for later**. Reserve for later requests a pickup date. Checkout also collects an estimated pickup time (shop hours, 8:00 AM–7:00 PM). The customer then reviews the bikes, selects Daily or Weekly, confirms their name and email, accepts the waiver and Terms, chooses Cash or GCash, and submits the booking.
 
 For GCash, the customer sees the store’s QR code or payment instructions, uploads a receipt, enters the reference number, and submits proof for verification. The receipt and reference number are required, and the payment amount must equal the exact booking total.
 
@@ -112,7 +112,7 @@ Extension booking VC-1002
  └── exact payment: completed
 ```
 
-Recommended booking fields are `id`, `user_id`, `expected_pickup_date`, `rate_selected`, `total_price`, `amount_paid`, `payment_method`, `payment_status`, `booking_type`, `parent_booking_id`, optional `rental_id`, waiver version and timestamp, status, and timestamps.
+Recommended booking fields are `id`, `user_id`, `expected_pickup_date`, `expected_pickup_time`, `rate_selected`, `total_price`, `amount_paid`, `payment_method`, `payment_status`, `booking_type`, `parent_booking_id`, optional `rental_id`, waiver version and timestamp, status, and timestamps.
 
 For the exact-payment rule, `amount_paid` may be `0` before payment or exactly `total_price` after payment. It must never be between those values or greater than `total_price`.
 

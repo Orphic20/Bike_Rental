@@ -17,6 +17,7 @@ from bike_rental.availability import (
     windows_overlap,
 )
 from bike_rental.database import SessionDep
+from bike_rental.lifecycle import SHOP_CLOSING_TIME, SHOP_OPENING_TIME
 from bike_rental.models import (
     AuditLog,
     Bike,
@@ -47,6 +48,7 @@ def _to_read(booking: Booking, rentals: list[tuple[Rental, Bike | None]]) -> Boo
         id=booking.id,
         booking_ref=booking.booking_ref,
         expected_pickup_date=booking.expected_pickup_date,
+        expected_pickup_time=booking.expected_pickup_time,
         rate_selected=booking.rate_selected,
         total_price=total,
         amount_paid=paid,
@@ -90,6 +92,12 @@ def create_booking(
         raise HTTPException(status_code=400, detail="At least one bike is required")
     if len(bike_ids) != len(set(bike_ids)):
         raise HTTPException(status_code=400, detail="Duplicate bikes in request")
+
+    if not (SHOP_OPENING_TIME <= body.expected_pickup_time <= SHOP_CLOSING_TIME):
+        raise HTTPException(
+            status_code=400,
+            detail="Estimated pickup must be between 8:00 AM and 7:00 PM",
+        )
 
     if body.payment_method == PaymentMethod.gcash:
         if not body.gcash_ref_no or not body.gcash_receipt_url:
@@ -171,6 +179,7 @@ def create_booking(
         gcash_ref_no=body.gcash_ref_no,
         gcash_receipt_url=body.gcash_receipt_url,
         expected_pickup_date=body.expected_pickup_date,
+        expected_pickup_time=body.expected_pickup_time,
         rate_selected=body.rate_selected,
         booking_type=BookingType.new,
         waiver_version=body.waiver_version,

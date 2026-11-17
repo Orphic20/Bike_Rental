@@ -42,3 +42,26 @@ export function formatDateTimeLabel(iso: string | null): string | null {
     minute: "2-digit",
   });
 }
+
+/** API `time` values arrive as HH:MM or HH:MM:SS. */
+export function formatTimeLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const [hourText, minuteText] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return new Date(2000, 0, 1, hour, minute).toLocaleTimeString("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatPickupLabel(
+  date: string | null | undefined,
+  time?: string | null,
+): string {
+  if (!date) return "Choose a date";
+  const day = formatDateLabel(date);
+  const clock = formatTimeLabel(time);
+  return clock ? `${day} · ${clock}` : day;
+}

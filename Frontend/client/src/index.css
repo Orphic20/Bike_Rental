@@ -429,6 +429,8 @@ button:not(:disabled), a { cursor: pointer; }
 .input-field span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
 .select-field svg:last-child { margin-left: auto; color: #85938a; }
 .select-field:hover { border-color: #9db29f; }
+.select-field select { flex: 1; min-width: 0; height: 43px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.select-field select:focus { outline: none; }
 .field-note { display: flex; align-items: center; gap: 5px; color: #c06a55; font-size: 10px; margin-top: 7px; }
 .check-row { display: flex; align-items: flex-start; gap: 9px; color: #78847c; font-size: 11px; line-height: 1.45; margin-top: 18px; }
 .check-row input { position: absolute; opacity: 0; pointer-events: none; }

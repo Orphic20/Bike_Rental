@@ -26,6 +26,8 @@ import {
 } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import {
+  DEFAULT_PICKUP_TIME,
+  PICKUP_TIME_SLOTS,
   SHOP_ADDRESS,
   SHOP_MAPS_EMBED_URL,
   SHOP_MAPS_URL,
@@ -36,7 +38,9 @@ import {
 import {
   formatDateLabel,
   formatDateTimeLabel,
+  formatPickupLabel,
   formatPeso,
+  formatTimeLabel,
   toAmount,
   todayIso,
 } from "@/lib/format";
@@ -145,6 +149,8 @@ function canCancelBooking(booking: Booking): boolean {
 function byPickupDate(a: StaffBooking, b: StaffBooking) {
   const date = a.expected_pickup_date.localeCompare(b.expected_pickup_date);
   if (date !== 0) return date;
+  const time = (a.expected_pickup_time ?? "").localeCompare(b.expected_pickup_time ?? "");
+  if (time !== 0) return time;
   return (a.booking_ref ?? a.id).localeCompare(b.booking_ref ?? b.id);
 }
 
@@ -1083,7 +1089,10 @@ function SelectionView({
             <span className="choice-radio" />
             <span>
               <strong>Book today</strong>
-              <small>{formatDateLabel(todayIso())} · pickup from 9:30 AM</small>
+              <small>
+                {formatDateLabel(todayIso())} · {formatTimeLabel("08:00")}–
+                {formatTimeLabel("19:00")}
+              </small>
             </span>
           </button>
           <button
@@ -1397,6 +1406,8 @@ function CustomerView({
   setCart,
   pickupDate,
   setPickupDate,
+  pickupTime,
+  setPickupTime,
   rate,
   setRate,
   initialScreen,
@@ -1406,6 +1417,8 @@ function CustomerView({
   setCart: React.Dispatch<React.SetStateAction<Bike[]>>;
   pickupDate: string | null;
   setPickupDate: (date: string | null) => void;
+  pickupTime: string;
+  setPickupTime: (time: string) => void;
   rate: RateSelected;
   setRate: (rate: RateSelected) => void;
   initialScreen: string;
@@ -1466,11 +1479,17 @@ function CustomerView({
       setStep(1);
       return;
     }
+    if (!pickupTime) {
+      toast.warning("Choose an estimated pickup time");
+      setStep(1);
+      return;
+    }
     setSubmitting(true);
     try {
       const booking = await api.createBooking({
         bikes: cart.map((bike) => ({ bike_id: bike.id })),
         expected_pickup_date: pickupDate,
+        expected_pickup_time: pickupTime,
         rate_selected: rate,
         payment_method: payment,
         gcash_ref_no: payment === "gcash" ? referenceNumber.trim() : null,
@@ -1498,6 +1517,14 @@ function CustomerView({
   };
 
   const next = () => {
+    if (step === 1 && !pickupDate) {
+      toast.warning("Choose a pickup date first");
+      return;
+    }
+    if (step === 1 && !pickupTime) {
+      toast.warning("Choose an estimated pickup time");
+      return;
+    }
     if (step === 3 && !waiver) {
       toast.warning("Accept the waiver", {
         description: "You must accept the waiver and Terms to continue.",
@@ -1551,7 +1578,12 @@ function CustomerView({
               <div className="review-list">
                 <div>
                   <span>Pickup</span>
-                  <strong>{formatDateLabel(confirmed.expected_pickup_date)}</strong>
+                  <strong>
+                    {formatPickupLabel(
+                      confirmed.expected_pickup_date,
+                      confirmed.expected_pickup_time,
+                    )}
+                  </strong>
                 </div>
                 <div>
                   <span>Bikes</span>
@@ -1673,7 +1705,10 @@ function CustomerView({
                     <div>
                       <span className="step-overline">Step 01 / 05</span>
                       <h2>When are you riding?</h2>
-                      <p>Reservations take a pickup date only; the return is set at the counter.</p>
+                      <p>
+                        Pick a date and an estimated arrival. Return time is set at the
+                        counter.
+                      </p>
                     </div>
                     <CalendarDays size={23} />
                   </div>
@@ -1686,7 +1721,7 @@ function CustomerView({
                       <div>
                         <small>Book today</small>
                         <strong>{formatDateLabel(todayIso())}</strong>
-                        <span>Pickup from 9:30 AM</span>
+                        <span>Estimated {formatTimeLabel(pickupTime)}</span>
                       </div>
                     </button>
                     <label
@@ -1715,6 +1750,23 @@ function CustomerView({
                       <span className="select-field">
                         <MapPin size={16} /> Bagong Sikat
                       </span>
+                    </div>
+                    <div className="field-block">
+                      <label htmlFor="pickup-time">Estimated pickup</label>
+                      <div className="select-field">
+                        <Clock3 size={16} />
+                        <select
+                          id="pickup-time"
+                          value={pickupTime}
+                          onChange={(event) => setPickupTime(event.target.value)}
+                        >
+                          {PICKUP_TIME_SLOTS.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {formatTimeLabel(slot)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1961,7 +2013,9 @@ function CustomerView({
                     <div>
                       <span>Pickup</span>
                       <strong>
-                        {pickupDate ? formatDateLabel(pickupDate) : "Not set"}
+                        {pickupDate
+                          ? formatPickupLabel(pickupDate, pickupTime)
+                          : "Not set"}
                       </strong>
                     </div>
                     <div>
@@ -2037,8 +2091,10 @@ function CustomerView({
               <div className="summary-details">
                 <div>
                   <span>Pickup</span>
-                  <strong>{pickupDate ? formatDateLabel(pickupDate) : "Choose a date"}</strong>
-                  <small>Bagong Sikat · 9:30 AM</small>
+                  <strong>
+                    {pickupDate ? formatPickupLabel(pickupDate, pickupTime) : "Choose a date"}
+                  </strong>
+                  <small>Bagong Sikat</small>
                 </div>
                 <div>
                   <span>Rate</span>
@@ -2432,8 +2488,11 @@ function MyRides({
                 Reservation {booking.booking_ref ?? booking.id.slice(0, 8)}
               </span>
               <h2>
-                {formatDateLabel(booking.expected_pickup_date)} ·{" "}
-                {booking.rate_selected === "weekly" ? "Weekly" : "Daily"}
+                {formatPickupLabel(
+                  booking.expected_pickup_date,
+                  booking.expected_pickup_time,
+                )}{" "}
+                · {booking.rate_selected === "weekly" ? "Weekly" : "Daily"}
               </h2>
             </div>
             <Pill tone={booking.payment_status === "paid" ? "paid" : "clay"}>
@@ -2506,7 +2565,10 @@ function MyRides({
           {history.map((booking) => (
             <div className="history-row" key={booking.id}>
               <span className="history-date">
-                {formatDateLabel(booking.expected_pickup_date)}
+                {formatPickupLabel(
+                  booking.expected_pickup_date,
+                  booking.expected_pickup_time,
+                )}
               </span>
               <div>
                 <strong>
@@ -2945,8 +3007,11 @@ function StaffView() {
                   <div className="card-title-row">
                     <div>
                       <span className="micro-label">
-                        {formatDateLabel(row.expected_pickup_date)} ·{" "}
-                        {row.booking_ref ?? row.id.slice(0, 8)}
+                        {formatPickupLabel(
+                          row.expected_pickup_date,
+                          row.expected_pickup_time,
+                        )}{" "}
+                        · {row.booking_ref ?? row.id.slice(0, 8)}
                       </span>
                       <h2>{row.customer_name}</h2>
                       <p className="handoff-email">{row.customer_email}</p>
@@ -2974,7 +3039,12 @@ function StaffView() {
                   <dl className="staff-extension-details">
                     <div>
                       <dt>Pickup</dt>
-                      <dd>{formatDateLabel(row.expected_pickup_date)}</dd>
+                      <dd>
+                        {formatPickupLabel(
+                          row.expected_pickup_date,
+                          row.expected_pickup_time,
+                        )}
+                      </dd>
                     </div>
                     <div>
                       <dt>Rate</dt>
@@ -3128,8 +3198,20 @@ function StaffView() {
                     }}
                   >
                     <div className="reservation-time">
-                      <strong>{formatDateLabel(booking.expected_pickup_date)}</strong>
-                      <span>{booking.booking_ref ?? booking.id.slice(0, 8)}</span>
+                      <strong>
+                        {formatTimeLabel(booking.expected_pickup_time) ??
+                          formatDateLabel(booking.expected_pickup_date)}
+                      </strong>
+                      <span>
+                        {[
+                          formatTimeLabel(booking.expected_pickup_time)
+                            ? formatDateLabel(booking.expected_pickup_date)
+                            : null,
+                          booking.booking_ref ?? booking.id.slice(0, 8),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
                     </div>
                     <div className="reservation-person">
                       <span className="avatar tiny-avatar">
@@ -3172,7 +3254,10 @@ function StaffView() {
                 <p className="handoff-meta">
                   {formatPeso(selected.total_price)} ·{" "}
                   {selected.rate_selected === "weekly" ? "Weekly" : "Daily"} · pickup{" "}
-                  {formatDateLabel(selected.expected_pickup_date)}
+                  {formatPickupLabel(
+                    selected.expected_pickup_date,
+                    selected.expected_pickup_time,
+                  )}
                 </p>
 
                 {selected.payment_method === "gcash" && selected.gcash_ref_no && (
@@ -4494,6 +4579,7 @@ export default function Home() {
   const [stylePage, setStylePage] = useState<BikeType | null>(null);
   const [cart, setCart] = useState<Bike[]>([]);
   const [pickupDate, setPickupDate] = useState<string | null>(null);
+  const [pickupTime, setPickupTime] = useState(DEFAULT_PICKUP_TIME);
   const [rate, setRate] = useState<RateSelected>("daily");
   const [authOpen, setAuthOpen] = useState(false);
   const [customerScreen, setCustomerScreen] = useState("booking");
@@ -4585,6 +4671,8 @@ export default function Home() {
             setCart={setCart}
             pickupDate={pickupDate}
             setPickupDate={setPickupDate}
+            pickupTime={pickupTime}
+            setPickupTime={setPickupTime}
             rate={rate}
             setRate={setRate}
             initialScreen={customerScreen}

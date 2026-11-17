@@ -85,7 +85,7 @@ UI says so.
 
 Today's queue lists today's pickups in this order: cash (or GCash still needing
 a decision), ready to release, out on rent, cancelled, returned. Within a
-status, rows stay ordered by pickup date.
+status, rows stay ordered by pickup date and estimated time.
 
 - **Reservations** shows cash-at-counter bookings that have not been released.
 - Staff record exact cash, verify GCash, release bikes, reject a reservation, or
