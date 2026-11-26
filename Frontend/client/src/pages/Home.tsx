@@ -261,6 +261,7 @@ function deskStatus(booking: StaffBooking): { label: string; tone: string } {
   }
   if (
     booking.payment_status === "paid" &&
+    booking.rentals.length > 0 &&
     booking.rentals.every((rental) => rental.status === "reserved")
   ) {
     return { label: "Ready to release", tone: "sage" };
@@ -2719,7 +2720,7 @@ function StaffView() {
   const today = todayIso();
 
   const visible = useMemo(() => {
-    const rows = queue.data ?? [];
+    const rows = (queue.data ?? []).filter((row) => row.booking_type !== "extension");
     let next = rows;
     if (tab === "today") next = rows.filter((row) => row.expected_pickup_date === today);
     else if (tab === "outstanding") {

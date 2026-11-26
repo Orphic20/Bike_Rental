@@ -756,21 +756,23 @@ button:not(:disabled), a { cursor: pointer; }
     position: fixed;
     z-index: 40;
     top: calc(var(--app-header-h, 76px) + var(--mobile-nav-tabs-h, 0px));
-    left: 0;
+    left: auto;
+    right: 0;
     bottom: 0;
-    width: min(288px, 88vw);
+    width: 50vw;
     min-height: 0;
     display: flex;
     flex-direction: column;
     padding: 8px 20px 22px;
-    border-right: 1px solid #e1e0d6;
+    border-right: 0;
+    border-left: 1px solid #e1e0d6;
     border-bottom: 0;
     overflow-x: hidden;
     overflow-y: auto;
     background: #f6f3ec;
-    box-shadow: 12px 0 40px rgba(34, 54, 51, .12);
+    box-shadow: none;
   }
-  html.mobile-nav-has-sidebar .app-sidebar { box-shadow: 12px 24px 40px rgba(34, 54, 51, .12); }
+  html.mobile-nav-has-sidebar .app-sidebar { box-shadow: none; }
   html.mobile-nav-open .app-sidebar::after { content: none; }
   html.mobile-nav-open .sidebar-intro,
   html.mobile-nav-open .ops-profile,
@@ -813,16 +815,18 @@ button:not(:disabled), a { cursor: pointer; }
     position: fixed;
     z-index: 41;
     top: var(--app-header-h, 76px);
-    left: 0;
+    left: auto;
+    right: 0;
     bottom: 0;
-    width: min(288px, 88vw);
+    width: 50vw;
     padding: 16px 20px calc(18px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     background: #f6f3ec;
-    border-right: 1px solid #e1e0d6;
-    box-shadow: 12px 0 40px rgba(34, 54, 51, .12);
+    border-right: 0;
+    border-left: 1px solid #e1e0d6;
+    box-shadow: none;
   }
   html.mobile-nav-has-sidebar .mobile-nav-drawer {
     bottom: auto;
