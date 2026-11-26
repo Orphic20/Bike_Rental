@@ -474,9 +474,17 @@ function AppHeader({
   const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
+    const hasSidebar = view === "admin" || view === "staff" || view === "customer";
     document.documentElement.classList.toggle("mobile-nav-open", menuOpen);
-    return () => document.documentElement.classList.remove("mobile-nav-open");
-  }, [menuOpen]);
+    document.documentElement.classList.toggle(
+      "mobile-nav-has-sidebar",
+      menuOpen && hasSidebar,
+    );
+    return () => {
+      document.documentElement.classList.remove("mobile-nav-open");
+      document.documentElement.classList.remove("mobile-nav-has-sidebar");
+    };
+  }, [menuOpen, view]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -1681,7 +1689,15 @@ function CustomerView({
           <div className="flow-layout">
             <section className="flow-card">
               <div className="flow-steps">
-                {["Date", "Rate", "Your details", "Payment", "Confirm"].map((label, index) => (
+                {(
+                  [
+                    ["Date", "Date"],
+                    ["Rate", "Rate"],
+                    ["Your details", "Details"],
+                    ["Payment", "Pay"],
+                    ["Confirm", "Done"],
+                  ] as const
+                ).map(([label, short], index) => (
                   <button
                     key={label}
                     className={
@@ -1694,7 +1710,10 @@ function CustomerView({
                     onClick={() => setStep(index + 1)}
                   >
                     <span>{step > index + 1 ? <Check size={12} /> : index + 1}</span>
-                    <small>{label}</small>
+                    <small>
+                      <span className="step-label-full">{label}</span>
+                      <span className="step-label-short">{short}</span>
+                    </small>
                   </button>
                 ))}
               </div>

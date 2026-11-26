@@ -342,7 +342,8 @@ button:not(:disabled), a { cursor: pointer; }
 .topline-date { flex: none; }
 .topline-closed { color: #f0cfc6; font-weight: 800; max-width: min(620px, 62vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topline-schedule { color: #e4edd8; font-weight: 800; max-width: min(620px, 62vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-header { height: 76px; padding: 0 3.4vw; display: flex; align-items: center; gap: 30px; background: #fbf9f3; border-bottom: 1px solid #e1e0d6; position: sticky; top: 0; z-index: 20; }
+:root { --app-header-h: 76px; }
+.app-header { height: var(--app-header-h, 76px); padding: 0 3.4vw; display: flex; align-items: center; gap: 30px; background: #fbf9f3; border-bottom: 1px solid #e1e0d6; position: sticky; top: 0; z-index: 20; }
 .app-brand { border: 0; background: transparent; display: flex; align-items: center; gap: 10px; color: #223633; padding: 0; min-width: 0; }
 .app-brand > span:last-child { font-family: "Fraunces", Georgia, serif; font-weight: 650; letter-spacing: -.06em; font-size: 23px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #d7654d; }
@@ -406,6 +407,7 @@ button:not(:disabled), a { cursor: pointer; }
 .flow-step.current > span { color: white; border-color: #c84c3d; background: #c84c3d; }
 .flow-step.done { color: #5e7964; }
 .flow-step.done > span { color: white; border-color: #6e9270; background: #6e9270; }
+.step-label-short { display: none; }
 .step-panel { padding: 36px 38px 31px; min-height: 430px; }
 .step-panel-head { display: flex; justify-content: space-between; gap: 20px; color: #789079; }
 .step-panel-head h2 { color: #273e39; font-family: "Fraunces", Georgia, serif; font-size: 31px; font-weight: 600; letter-spacing: -.065em; margin: 8px 0 9px; }
@@ -729,7 +731,15 @@ button:not(:disabled), a { cursor: pointer; }
   .admin-metrics { grid-template-columns: repeat(2, 1fr); }.main-metric { grid-column: 1 / -1; }
 }
 @media (max-width: 850px) {
-  .role-switcher { margin-left: auto; }.profile-name { display: none; }
+  .role-switcher {
+    margin-left: auto;
+    max-width: min(48vw, 380px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .role-switcher::-webkit-scrollbar { display: none; }
+  .role-tab { flex: none; white-space: nowrap; }
+  .profile-name { display: none; }
   .mobile-menu-button { display: block; }
   .mobile-menu-tabs-only { display: none; }
   .product-layout { grid-template-columns: 1fr; }
@@ -745,14 +755,14 @@ button:not(:disabled), a { cursor: pointer; }
   html.mobile-nav-open .app-sidebar {
     position: fixed;
     z-index: 40;
-    top: calc(76px + var(--mobile-nav-tabs-h, 0px));
+    top: calc(var(--app-header-h, 76px) + var(--mobile-nav-tabs-h, 0px));
     left: 0;
     bottom: 0;
     width: min(288px, 88vw);
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 18px 20px 22px;
+    padding: 8px 20px 22px;
     border-right: 1px solid #e1e0d6;
     border-bottom: 0;
     overflow-x: hidden;
@@ -760,6 +770,7 @@ button:not(:disabled), a { cursor: pointer; }
     background: #f6f3ec;
     box-shadow: 12px 0 40px rgba(34, 54, 51, .12);
   }
+  html.mobile-nav-has-sidebar .app-sidebar { box-shadow: 12px 24px 40px rgba(34, 54, 51, .12); }
   html.mobile-nav-open .app-sidebar::after { content: none; }
   html.mobile-nav-open .sidebar-intro,
   html.mobile-nav-open .ops-profile,
@@ -801,12 +812,23 @@ button:not(:disabled), a { cursor: pointer; }
     gap: 6px;
     position: fixed;
     z-index: 41;
-    top: 76px;
+    top: var(--app-header-h, 76px);
     left: 0;
+    bottom: 0;
     width: min(288px, 88vw);
-    padding: 16px 20px 10px;
+    padding: 16px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: #f6f3ec;
     border-right: 1px solid #e1e0d6;
+    box-shadow: 12px 0 40px rgba(34, 54, 51, .12);
+  }
+  html.mobile-nav-has-sidebar .mobile-nav-drawer {
+    bottom: auto;
+    padding-bottom: 4px;
+    border-bottom: 0;
+    box-shadow: none;
   }
   .mobile-nav-tabs { display: flex; flex-direction: column; gap: 2px; }
   .mobile-nav-tab {
@@ -833,7 +855,35 @@ button:not(:disabled), a { cursor: pointer; }
     padding: 12px 11px;
   }
   .page-heading { flex-direction: column; gap: 16px; }.page-heading > .app-pill { margin-top: 0; }
-  .step-panel { padding: 28px 20px 24px; }.flow-footer { padding: 14px 20px; }.flow-steps { padding: 15px 13px; }.flow-step { flex-direction: column; gap: 4px; align-items: flex-start; }.flow-step:not(:last-child)::after { display: none; }.flow-step small { font-size: 8px; }
+  .step-panel { padding: 28px 20px 24px; }
+  .flow-footer { padding: 14px 20px; }
+  .flow-card { min-width: 0; overflow: hidden; }
+  .flow-steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: start;
+    gap: 0;
+    padding: 12px 8px 14px;
+  }
+  .flow-step {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    min-width: 0;
+    padding: 0 2px;
+    text-align: center;
+  }
+  .flow-step:not(:last-child)::after { display: none; }
+  .flow-step small {
+    display: block;
+    width: 100%;
+    font-size: 8px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .step-label-full { display: none; }
+  .step-label-short { display: inline; }
   .date-choice-grid, .field-row, .form-grid { grid-template-columns: 1fr; }.field-block.full { grid-column: auto; }
   .mini-bike-grid { grid-template-columns: 1fr; }.mini-bike-card { display: grid; grid-template-columns: 115px 1fr; }.mini-bike-image { height: 100%; min-height: 100px; }.mini-bike-copy { justify-content: center; }
   .summary-card { grid-template-columns: 105px 1fr; padding: 14px; }.summary-bike-image { height: 95px; }.summary-bike-name h3 { font-size: 19px; }.summary-details { gap: 7px; }.summary-total strong { font-size: 21px; }
@@ -1072,7 +1122,7 @@ button:not(:disabled), a { cursor: pointer; }
 .selection-footer > div { display: flex; flex-direction: column; gap: 4px; }.selection-footer .micro-label { color: #a36d5b; }.selection-footer strong { color: #355047; font-family: "Fraunces", Georgia, serif; font-size: 20px; letter-spacing: -.045em; }.selection-footer > div > span:last-child { color: #8a968e; font-size: 10px; }
 @media (max-width: 950px) { .selection-page { padding-left: 5vw; padding-right: 5vw; grid-template-columns: 1fr; gap: 50px; }.selection-intro { max-width: 520px; }.selection-intro h1 { font-size: clamp(62px, 11vw, 90px); } }
 @media (max-width: 650px) {
-  .selection-page { padding: 52px 22px 70px; gap: 37px; }
+  .selection-page { padding: 52px 22px 24px; gap: 37px; }
   .selection-topline { align-items: flex-start; flex-direction: column; gap: 7px; }
   .selection-grid { grid-template-columns: 1fr; gap: 13px; }
   .selection-card { display: flex; flex-direction: column; }
@@ -1110,7 +1160,7 @@ button:not(:disabled), a { cursor: pointer; }
   .style-switch span { font-size: 13px; }
   .style-switch small { font-size: 8px; }
   .selection-cart-brief { margin-top: 30px; }
-  .inventory-grid { padding-bottom: 88px; }
+  .inventory-grid { padding-bottom: 170px; }
   .inventory-grid .selection-card {
     display: flex;
     flex-direction: column;
@@ -1128,14 +1178,36 @@ button:not(:disabled), a { cursor: pointer; }
 
 /* Coastal Utility Atelier page flow: style choice is a composed first page; inventory is a focused second page. */
 .style-page { min-height: calc(100vh - 106px); max-width: 1420px; margin: 0 auto; padding: 82px 7vw 50px; }
-.style-page-head { display: grid; grid-template-columns: 1fr 280px; gap: 50px; align-items: end; margin-bottom: 54px; }.style-page-head h1 { margin: 24px 0 18px; color: #263b38; font-family: "Fraunces", Georgia, serif; font-size: clamp(62px, 7vw, 100px); line-height: .84; letter-spacing: -.085em; font-weight: 650; }.style-page-head h1 em { color: #c84c3d; font-style: italic; font-weight: 500; }.style-page-head p { max-width: 410px; margin: 0; color: #718078; font-size: 14px; line-height: 1.7; }.style-page-head .walk-in-fleet-note { max-width: 410px; }
+.style-page-head {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  grid-template-areas:
+    "copy cart"
+    "date cart";
+  gap: 20px 50px;
+  align-items: end;
+  margin-bottom: 54px;
+}
+.style-page-head > div:first-child { grid-area: copy; min-width: 0; }
+.style-page-head h1 { margin: 24px 0 18px; color: #263b38; font-family: "Fraunces", Georgia, serif; font-size: clamp(62px, 7vw, 100px); line-height: .84; letter-spacing: -.085em; font-weight: 650; }
+.style-page-head h1 em { color: #c84c3d; font-style: italic; font-weight: 500; }
+.style-page-head p { max-width: 410px; margin: 0; color: #718078; font-size: 14px; line-height: 1.7; }
+.style-page-head .walk-in-fleet-note { max-width: 410px; }
+.style-cart-summary { grid-area: cart; }
 .style-cart-summary { border-top: 1px solid #b9c5b8; border-bottom: 1px solid #d6d9cf; padding: 16px 0 18px; display: flex; flex-direction: column; gap: 5px; }.style-cart-summary strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 24px; letter-spacing: -.05em; }.style-cart-summary span:last-child { color: #8c978f; font-size: 10px; }
 .style-page-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }.style-page-card { padding: 0; border: 1px solid #d9ded5; background: #fbf9f3; text-align: left; transition: transform .24s cubic-bezier(.23,1,.32,1), box-shadow .24s ease, border-color .2s ease; }.style-page-card:hover { transform: translateY(-6px); border-color: #9bb29d; box-shadow: 0 20px 34px rgba(52,75,61,.11); }.style-page-image { height: 280px; position: relative; overflow: hidden; }.style-page-card.selection-sage .style-page-image { background: #dce7d5; }.style-page-card.selection-clay .style-page-image { background: #ecd9d0; }.style-page-card.selection-forest .style-page-image { background: #d6e0d9; }.style-page-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.23,1,.32,1); }.style-page-card:hover .style-page-image img { transform: scale(1.055); }.style-page-image .selection-number { left: 18px; top: 16px; font-size: 20px; }.style-page-arrow { position: absolute; top: 16px; right: 17px; width: 30px; height: 30px; border: 1px solid rgba(63,85,73,.28); border-radius: 50%; display: grid; place-items: center; color: #486258; transition: background .2s ease, color .2s ease; }.style-page-card:hover .style-page-arrow { background: #304a41; color: #fffdf6; }
 .style-page-copy { padding: 21px 20px 22px; }.style-page-copy h2 { margin: 6px 0 9px; color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 30px; letter-spacing: -.065em; }.style-page-copy p { min-height: 43px; margin: 0 0 21px; color: #7d8b82; font-size: 11px; line-height: 1.55; }.style-page-link { display: inline-flex; align-items: center; gap: 8px; color: #c84c3d; border-top: 1px solid #dfe1d8; padding-top: 13px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }.style-page-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; padding-top: 14px; border-top: 1px solid #d6d9cf; color: #8b968e; text-transform: uppercase; letter-spacing: .13em; font-size: 9px; }
 @media (max-width: 850px) {
   .style-page { padding-left: 5vw; padding-right: 5vw; }
-  .style-page-head { grid-template-columns: 1fr; gap: 28px; }
-  .style-cart-summary { max-width: 280px; }
+  .style-page-head {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "copy"
+      "date"
+      "cart";
+    gap: 18px;
+  }
+  .style-cart-summary { max-width: none; }
   .style-page-list { grid-template-columns: 1fr; max-width: 620px; }
   .style-page-card { display: flex; flex-direction: column; }
   .style-page-image {
@@ -1151,8 +1223,11 @@ button:not(:disabled), a { cursor: pointer; }
 }
 @media (max-width: 560px) {
   .style-page { padding: 52px 22px 70px; }
-  .style-page-head h1 { font-size: 64px; }
-  .style-page-card { display: block; }
+  .style-page-head { margin-bottom: 28px; }
+  .style-page-head h1 { font-size: clamp(40px, 12vw, 52px); line-height: .9; }
+  .style-page-copy p { min-height: 0; }
+  .style-page-copy h2 { font-size: 24px; }
+  .style-page-card { display: flex; flex-direction: column; }
   .style-page-image {
     height: auto;
     min-height: 200px;
@@ -1178,7 +1253,14 @@ button:not(:disabled), a { cursor: pointer; }
 .change-dates-link { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #c84c3d; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }.change-dates-link:hover { color: #304a41; }.booking-summary-sticky { position: sticky; bottom: 14px; z-index: 4; margin-top: 18px; padding: 15px 17px; background: rgba(40, 62, 57, .97); box-shadow: 0 16px 30px rgba(31,49,44,.18); }.booking-summary-sticky .micro-label, .booking-summary-sticky strong, .booking-summary-sticky span { color: #f8f5eb; }.booking-summary-sticky .micro-label { color: #d8b0a0; }.booking-summary-sticky > div { display: flex; flex-direction: column; gap: 4px; }.booking-summary-sticky > div > span:last-child { color: #bfd0c2; font-size: 10px; }.booking-summary-sticky .primary-button { background: #cb5444; color: #fffaf0; }.booking-summary-sticky .primary-button:disabled { opacity: .5; }
 .booking-date-modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 22px; background: rgba(25, 43, 38, .48); backdrop-filter: blur(7px); animation: fade-in .18s ease-out; }.booking-date-modal { position: relative; width: min(100%, 490px); padding: 35px 34px 30px; background: #fbfaf4; box-shadow: 0 26px 70px rgba(18,36,31,.22); animation: modal-in .22s cubic-bezier(.23,1,.32,1); }.booking-date-close { position: absolute; top: 17px; right: 17px; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #d8ded5; border-radius: 50%; background: transparent; color: #617268; }.booking-date-modal h2 { margin: 18px 0 10px; color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 36px; letter-spacing: -.065em; }.booking-date-modal > p { max-width: 360px; margin: 0; color: #7b8980; font-size: 12px; line-height: 1.6; }.date-prompt-options { display: grid; gap: 10px; margin: 25px 0 13px; }.date-prompt-option { display: grid; grid-template-columns: 16px 1fr; gap: 12px; align-items: center; padding: 14px; border: 1px solid #d9ded5; background: #f7f5ed; text-align: left; }.date-prompt-option.active { border-color: #7c997f; background: #e5eee0; }.date-prompt-option .choice-radio { width: 15px; height: 15px; border: 1px solid #9bab9d; border-radius: 50%; }.date-prompt-option.active .choice-radio { border-color: #c84c3d; background: #c84c3d; box-shadow: inset 0 0 0 4px #e5eee0; }.date-prompt-option span:last-child { display: flex; flex-direction: column; gap: 4px; }.date-prompt-option strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 18px; letter-spacing: -.035em; }.date-prompt-option small { color: #89958c; font-size: 9px; }.date-prompt-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 11px 0 18px; }.date-prompt-fields label { display: grid; gap: 6px; color: #66766b; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.date-prompt-fields input { min-width: 0; border: 1px solid #d4dbd1; background: #fffef9; color: #304a41; padding: 11px 10px; font: inherit; font-size: 11px; }.full-button { width: 100%; justify-content: center; margin-top: 16px; }.modal-note { display: block; margin-top: 14px; color: #9aa39c; font-size: 9px; text-align: center; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@media (max-width: 560px) { .booking-summary-sticky { align-items: stretch; flex-direction: column; gap: 13px; bottom: 8px; }.booking-summary-sticky .primary-button { width: 100%; justify-content: center; }.booking-date-modal { padding: 31px 22px 24px; }.booking-date-modal h2 { font-size: 31px; }.date-prompt-fields { grid-template-columns: 1fr; } }
+@media (max-width: 560px) {
+  .booking-summary-sticky { align-items: stretch; flex-direction: column; gap: 13px; bottom: 8px; }
+  .booking-summary-sticky .primary-button { width: 100%; justify-content: center; }
+  .inventory-grid { padding-bottom: 200px; }
+  .booking-date-modal { padding: 31px 22px 24px; }
+  .booking-date-modal h2 { font-size: 31px; }
+  .date-prompt-fields { grid-template-columns: 1fr; }
+}
 @media (prefers-reduced-motion: reduce) { .booking-date-modal-backdrop, .booking-date-modal { animation: none; } }
 
 /* Future reservation prompt: one pickup date, with no unnecessary return-date field. */
@@ -1188,9 +1270,12 @@ button:not(:disabled), a { cursor: pointer; }
 .gcash-proof-fields { min-width: 0; display: flex; flex-direction: column; gap: 8px; }.gcash-proof-fields > strong { color: #304a41; font-family: "Fraunces", Georgia, serif; font-size: 19px; letter-spacing: -.04em; }.gcash-proof-fields > p { margin: 0 0 5px; color: #839087; font-size: 10px; }.upload-proof { position: relative; display: flex; align-items: center; justify-content: center; min-height: 42px; border: 1px dashed #aebcae; background: #f8f7ef; color: #c84c3d; font-size: 10px; font-weight: 800; cursor: pointer; }.upload-proof input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }.upload-proof > span { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; overflow: hidden; padding: 0 12px; text-overflow: ellipsis; white-space: nowrap; }.upload-proof.uploaded { border-style: solid; background: #e5eee0; color: #4a6b53; }.reference-field { display: grid; gap: 5px; color: #6a796f; font-size: 9px; font-weight: 800; }.reference-field input { width: 100%; border: 1px solid #d5ddd2; background: #fffdf8; color: #304a41; padding: 10px 11px; font: inherit; font-size: 11px; outline: none; }.reference-field input:focus { border-color: #7f9f84; box-shadow: 0 0 0 3px rgba(127,159,132,.12); }.proof-required { color: #9a7468; font-size: 9px; }.receipt-thumb { width: 100%; max-height: 120px; object-fit: cover; background: #f8f7ef; }
 
 /* Coastal Utility Atelier style-page date action: a quiet utility control beside the group-booking context. */
-.style-page-head { position: relative; }.style-date-button { align-self: end; display: inline-flex; align-items: center; gap: 8px; min-height: 43px; border: 1px solid #c84c3d; background: #c84c3d; color: #fffaf0; padding: 0 14px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }.style-date-button:hover { background: #a93e34; transform: translateY(-2px); }.style-date-button span { white-space: nowrap; }
-@media (max-width: 850px) { .style-date-button { justify-self: start; align-self: start; } }
-@media (max-width: 560px) { .style-date-button { width: 100%; justify-content: center; } }
+.style-page-head { position: relative; }
+.style-date-button { grid-area: date; justify-self: start; align-self: start; display: inline-flex; align-items: center; gap: 8px; min-height: 43px; border: 1px solid #c84c3d; background: #c84c3d; color: #fffaf0; padding: 0 14px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }
+.style-date-button:hover { background: #a93e34; transform: translateY(-2px); }
+.style-date-button span { white-space: nowrap; }
+@media (max-width: 850px) { .style-date-button { justify-self: stretch; width: 100%; justify-content: center; } }
+@media (max-width: 560px) { .style-date-button span { white-space: normal; text-align: center; } }
 
 /* Coastal Utility Atelier operations layer: shop status is visible, calm, and reversible from Admin. */
 .admin-heading-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
